@@ -1,0 +1,38 @@
+###################################
+### Run combined regenie from terminal interface
+
+for i in {1..22}; do
+    run_regenie="regenie \
+    -iwgr_genotype_bed=ukbxxxxx_c${i}_b0_v2.bed \ # Replace xxxxx with unique project identifier for BED files
+    -iwgr_genotype_bim=ukbxxxxx_c${i}_b0_v2.bim \
+    -iwgr_genotype_fam=ukbxxxxx_c${i}_b0_v2.fam \
+    -igenotype_bgens=ukbxxxxx_c${i}_b0_v3.bgen \ # Replace xxxxx with unique project identifier for BGEN files
+    -igenotype_bgis=ukbxxxxx_c${i}_b0_v3.bgen.bgi \
+    -igenotype_samples=ukbxxxxx_c${i}_b0_v3.sample \
+    -ipheno_txt=colic_to_colic_all_quant_pheno.txt \
+    -icovar_txt=colic_to_colic_all_quant_cov.txt \
+    -iquant_traits=true \
+    -ipheno_names=pheno \
+-icovar_names=genetic_principal_components_array_1,genetic_principal_components_array_2,genetic_principal_components_array_3,genetic_principal_components_array_4,genetic_principal_components_array_5,genetic_principal_components_array_6,genetic_principal_components_array_7,genetic_principal_components_array_8,genetic_principal_components_array_9,genetic_principal_components_array_10,genotype_measurement_batch,sex,age_at_first_stone \
+    -ioutput_prefix=regenie_symptomatic_quant_gwas_chr${i} \
+    -iprs_mode=true \
+    -istep1_keep_txts=qc_gwas_pass_maf_0.05_chr${i}.id \
+    -istep1_extract_txts=qc_gwas_pass_maf_0.05_chr${i}.snplist \
+    -istep2_keep_txts=qc_pass_imputed_geno_maf_0.01_chr${i}.id \
+    -istep2_extract_txts=qc_pass_imputed_geno_maf_0.01_chr${i}.snplist"
+
+    dx run regenie \
+    -iin="$(dx find data --brief --name=ukbxxxxx_c${i}_b0_v2.bed)" \
+    -iin="$(dx find data --brief --name=ukbxxxxx_c${i}_b0_v2.bim)" \
+    -iin="$(dx find data --brief --name=ukbxxxxx_c${i}_b0_v2.fam)" \
+    -iin="$(dx find data --brief --name=ukbxxxxx_c${i}_b0_v3.bgen)" \
+    -iin="$(dx find data --brief --name=ukbxxxxx_c${i}_b0_v3.bgen.bgi)" \
+    -iin="$(dx find data --brief --name=ukbxxxxx_c${i}_b0_v3.sample)" \
+    -iin="$(dx find data --brief --name=qc_gwas_pass_maf_0.05_chr${i}.id)" \
+    -iin="$(dx find data --brief --name=qc_gwas_pass_maf_0.05_chr${i}.snplist)" \
+    -iin="$(dx find data --brief --name=qc_pass_imputed_geno_maf_0.01_chr${i}.id)" \
+    -iin="$(dx find data --brief --name=qc_pass_imputed_geno_maf_0.01_chr${i}.snplist)" \
+    -iin="$(dx find data --brief --name=colic_to_colic_all_quant_pheno.txt)" \
+    -iin="$(dx find data --brief --name=colic_to_colic_all_quant_cov.txt)" \
+    -icmd="${run_regenie}" --destination="GWAS for PRS/Quant/" --brief --yes
+done

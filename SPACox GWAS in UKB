@@ -1,0 +1,394 @@
+#################################
+### 1. install packages ########
+
+install.packages("devtools")
+install.packages("coxphf")
+install.packages("dplyr")
+install.packages("magrittr")
+install.packages("survival")
+install.packages("survminer")
+install.packages("ggplot2")
+install.packages("qqman")
+install.packages("bigsnpr")
+
+#################################
+### 2. load packages ############
+
+library(devtools)
+library(coxphf)
+library(dplyr)
+library(magrittr)
+library(survival)
+library(survminer)
+library(ggplot2)
+library(bigsnpr)
+library(qqman)
+library(tidyverse)
+
+install_github("WenjianBi/SPACox", auth_token = "AMEND THIS TO UNIQUE AUTHORISATION TOKEN")
+library(SPACox)
+
+#################################
+### 2. load phenotype file ######
+
+# This presumes colic_to_colic_time_to_event2 is already created 
+
+colic_to_colic_time_to_event <- read.delim("colic_to_colic_time_to_event2.txt")
+colic_to_colic_time_to_event$IID <- as.integer(colic_to_colic_time_to_event$IID)
+colic_to_colic_time_to_event$pheno <- as.integer(colic_to_colic_time_to_event$pheno)
+colic_to_colic_time_to_event$time_to_event <- as.integer(colic_to_colic_time_to_event$time_to_event)
+colic_to_colic_time_to_event$sex <- as.integer(colic_to_colic_time_to_event$sex)
+colic_to_colic_time_to_event$age_at_recruitment <- as.integer(colic_to_colic_time_to_event$age_at_recruitment)
+
+#################################
+### 3. load genotype files ######
+
+snp_readBed("ukbxxxxx_c1_b0_v2_filtered.bed") # Amend ukbxxxxx to unique identifier for project 
+snp_readBed("ukbxxxxx_c2_b0_v2_filtered.bed")
+snp_readBed("ukbxxxxx_c3_b0_v2_filtered.bed")
+snp_readBed("ukbxxxxx_c4_b0_v2_filtered.bed")
+snp_readBed("ukbxxxxx_c5_b0_v2_filtered.bed")
+snp_readBed("ukbxxxxx_c6_b0_v2_filtered.bed")
+snp_readBed("ukbxxxxx_c7_b0_v2_filtered.bed")
+snp_readBed("ukbxxxxx_c8_b0_v2_filtered.bed")
+snp_readBed("ukbxxxxx_c9_b0_v2_filtered.bed")
+snp_readBed("ukbxxxxx_c10_b0_v2_filtered.bed")
+snp_readBed("ukbxxxxx_c11_b0_v2_filtered.bed")
+snp_readBed("ukbxxxxx_c12_b0_v2_filtered.bed")
+snp_readBed("ukbxxxxx_c13_b0_v2_filtered.bed")
+snp_readBed("ukbxxxxx_c14_b0_v2_filtered.bed")
+snp_readBed("ukbxxxxx_c15_b0_v2_filtered.bed")
+snp_readBed("ukbxxxxx_c16_b0_v2_filtered.bed")
+snp_readBed("ukbxxxxx_c17_b0_v2_filtered.bed")
+snp_readBed("ukbxxxxx_c18_b0_v2_filtered.bed")
+snp_readBed("ukbxxxxx_c19_b0_v2_filtered.bed")
+snp_readBed("ukbxxxxx_c20_b0_v2_filtered.bed")
+snp_readBed("ukbxxxxx_c21_b0_v2_filtered.bed")
+snp_readBed("ukbxxxxx_c22_b0_v2_filtered.bed")
+
+geno_chr1 <-
+  snp_attach("ukbxxxxx_c1_b0_v2_filtered.rds")
+geno_chr2 <-
+  snp_attach("ukbxxxxxc2_b0_v2_filtered.rds")
+geno_chr3 <-
+  snp_attach("ukbxxxxx_c3_b0_v2_filtered.rds")
+geno_chr4 <-
+  snp_attach("ukbxxxxx_c4_b0_v2_filtered.rds")
+geno_chr5 <-
+  snp_attach("ukbxxxxx_c5_b0_v2_filtered.rds")
+geno_chr6 <-
+  snp_attach("ukbxxxxx_c6_b0_v2_filtered.rds")
+geno_chr7 <-
+  snp_attach("ukbxxxxx_c7_b0_v2_filtered.rds")
+geno_chr8 <-
+  snp_attach("ukbxxxxx_c8_b0_v2_filtered.rds")
+geno_chr9 <-
+  snp_attach("ukbxxxxx_c9_b0_v2_filtered.rds")
+geno_chr10 <-
+  snp_attach("ukbxxxxx_c10_b0_v2_filtered.rds")
+geno_chr11 <-
+  snp_attach("ukbxxxxx_c11_b0_v2_filtered.rds")
+geno_chr12 <-
+  snp_attach("ukbxxxxx_c12_b0_v2_filtered.rds")
+geno_chr13 <-
+  snp_attach("ukbxxxxx_c13_b0_v2_filtered.rds")
+geno_chr14 <-
+  snp_attach("ukbxxxxx_c14_b0_v2_filtered.rds")
+geno_chr15 <-
+  snp_attach("ukbxxxxx_c15_b0_v2_filtered.rds")
+geno_chr16 <-
+  snp_attach("ukbxxxxx_c16_b0_v2_filtered.rds")
+geno_chr17 <-
+  snp_attach("ukbxxxxx_c17_b0_v2_filtered.rds")
+geno_chr18 <-
+  snp_attach("ukbxxxxx_c18_b0_v2_filtered.rds")
+geno_chr19 <-
+  snp_attach("ukbxxxxx_c19_b0_v2_filtered.rds")
+geno_chr20 <-
+  snp_attach("ukbxxxxx_c20_b0_v2_filtered.rds")
+geno_chr21 <-
+  snp_attach("ukbxxxxx_c21_b0_v2_filtered.rds")
+geno_chr22 <-
+  snp_attach("ukbxxxxx_c22_b0_v2_filtered.rds")
+
+
+#################################
+### 4. Create useful slots for each Chr
+
+# Chromosome 1
+geno_chr1_filtered <- geno_chr1
+G_ids_chr1 <- geno_chr1$fam$sample.ID
+
+# Chromosome 2
+geno_chr2_filtered <- geno_chr2
+G_ids_chr2 <- geno_chr2$fam$sample.ID
+
+# Chromosome 3
+geno_chr3_filtered <- geno_chr3
+G_ids_chr3 <- geno_chr3$fam$sample.ID
+
+# Chromosome 4
+geno_chr4_filtered <- geno_chr4
+G_ids_chr4 <- geno_chr4$fam$sample.ID
+
+# Chromosome 5
+geno_chr5_filtered <- geno_chr5
+G_ids_chr5 <- geno_chr5$fam$sample.ID
+
+# Chromosome 6
+geno_chr6_filtered <- geno_chr6
+G_ids_chr6 <- geno_chr6$fam$sample.ID
+
+# Chromosome 7
+geno_chr7_filtered <- geno_chr7
+G_ids_chr7 <- geno_chr7$fam$sample.ID
+
+# Chromosome 8
+geno_chr8_filtered <- geno_chr8
+G_ids_chr8 <- geno_chr8$fam$sample.ID
+
+# Chromosome 9
+geno_chr9_filtered <- geno_chr9
+G_ids_chr9 <- geno_chr9$fam$sample.ID
+
+# Chromosome 10
+geno_chr10_filtered <- geno_chr10
+G_ids_chr10 <- geno_chr10$fam$sample.ID
+
+# Chromosome 11
+geno_chr11_filtered <- geno_chr11
+G_ids_chr11 <- geno_chr11$fam$sample.ID
+
+# Chromosome 12
+geno_chr12_filtered <- geno_chr12
+G_ids_chr12 <- geno_chr12$fam$sample.ID
+
+# Chromosome 13
+geno_chr13_filtered <- geno_chr13
+G_ids_chr13 <- geno_chr13$fam$sample.ID
+
+# Chromosome 14
+geno_chr14_filtered <- geno_chr14
+G_ids_chr14 <- geno_chr14$fam$sample.ID
+
+# Chromosome 15
+geno_chr15_filtered <- geno_chr15
+G_ids_chr15 <- geno_chr15$fam$sample.ID
+
+# Chromosome 16
+geno_chr16_filtered <- geno_chr16
+G_ids_chr16 <- geno_chr16$fam$sample.ID
+
+# Chromosome 17
+geno_chr17_filtered <- geno_chr17
+G_ids_chr17 <- geno_chr17$fam$sample.ID
+
+# Chromosome 18
+geno_chr18_filtered <- geno_chr18
+G_ids_chr18 <- geno_chr18$fam$sample.ID
+
+# Chromosome 19
+geno_chr19_filtered <- geno_chr19
+G_ids_chr19 <- geno_chr19$fam$sample.ID
+
+# Chromosome 20
+geno_chr20_filtered <- geno_chr20
+G_ids_chr20 <- geno_chr20$fam$sample.ID
+
+# Chromosome 21
+geno_chr21_filtered <- geno_chr21
+G_ids_chr21 <- geno_chr21$fam$sample.ID
+
+# Chromosome 22
+geno_chr22_filtered <- geno_chr22
+G_ids_chr22 <- geno_chr22$fam$sample.ID
+
+#################################
+### 5. SPACox step 1 - create null model
+
+run_SPACox_Null_Model <- function(G_ids) {
+  SPACox_Null_Model(
+    Surv(time_to_event + pheno) ~ 
+      genetic_principal_components_array_1 + 
+      genetic_principal_components_array_2 + 
+      genetic_principal_components_array_3 + 
+      genetic_principal_components_array_4 + 
+      genetic_principal_components_array_5 + 
+      genetic_principal_components_array_6 + 
+      genetic_principal_components_array_7 + 
+      genetic_principal_components_array_8 + 
+      genetic_principal_components_array_9 + 
+      genetic_principal_components_array_10 + 
+      genotype_measurement_batch + 
+      sex + 
+      age_at_recruitment,
+    data = colic_to_colic_time_to_event,
+    pIDs = colic_to_colic_time_to_event$IID,
+    gIDs = G_ids
+  )
+}
+
+null_model_chr1 <- run_SPACox_Null_Model(G_ids_chr1)
+null_model_chr2 <- run_SPACox_Null_Model(G_ids_chr2)
+null_model_chr3 <- run_SPACox_Null_Model(G_ids_chr3)
+null_model_chr4 <- run_SPACox_Null_Model(G_ids_chr4)
+null_model_chr5 <- run_SPACox_Null_Model(G_ids_chr5)
+null_model_chr6 <- run_SPACox_Null_Model(G_ids_chr6)
+null_model_chr7 <- run_SPACox_Null_Model(G_ids_chr7)
+null_model_chr8 <- run_SPACox_Null_Model(G_ids_chr8)
+null_model_chr9 <- run_SPACox_Null_Model(G_ids_chr9)
+null_model_chr10 <- run_SPACox_Null_Model(G_ids_chr10)
+null_model_chr11 <- run_SPACox_Null_Model(G_ids_chr11)
+null_model_chr12 <- run_SPACox_Null_Model(G_ids_chr12)
+null_model_chr13 <- run_SPACox_Null_Model(G_ids_chr13)
+null_model_chr14 <- run_SPACox_Null_Model(G_ids_chr14)
+null_model_chr15 <- run_SPACox_Null_Model(G_ids_chr15)
+null_model_chr16 <- run_SPACox_Null_Model(G_ids_chr16)
+null_model_chr17 <- run_SPACox_Null_Model(G_ids_chr17)
+null_model_chr18 <- run_SPACox_Null_Model(G_ids_chr18)
+null_model_chr19 <- run_SPACox_Null_Model(G_ids_chr19)
+null_model_chr20 <- run_SPACox_Null_Model(G_ids_chr20)
+null_model_chr21 <- run_SPACox_Null_Model(G_ids_chr21)
+null_model_chr22 <- run_SPACox_Null_Model(G_ids_chr22)
+
+
+#################################
+### 6. SPACox step 2 - Run GWAS per chromosome
+
+# Build function for ease of use
+process_chromosome_data <- function(chromosome_number, null_model, plink_file_prefix, geno_map) {
+  # Run the SPACox.plink function
+  plink_file <- paste0(plink_file_prefix, "_c", chromosome_number, "_b0_v2_filtered")
+  output_file <- paste0("chr", chromosome_number, "_output")
+  
+  model <- SPACox.plink(obj.null = null_model,
+                        plink.file = plink_file,
+                        output.file = output_file)
+  
+  # Read the output file
+  output <- read.delim(output_file) %>%
+    cbind(CHR = chromosome_number)
+  
+  # Filter the geno_map based on markerID in the output
+  filtered_map <- geno_map %>%
+    filter(marker.ID %in% output$markerID)
+  
+  # Combine the filtered map with the output
+  output_combined <- output %>%
+    left_join(filtered_map, by = c("markerID" = "marker.ID")) %>%
+    drop_na(p.value.spa)
+  
+  return(output_combined)
+}
+
+# Run function per chromosome
+
+# chromosome 1
+chr1_output_combined <- process_chromosome_data(1, null_model_chr1, "ukbxxxxx", geno_chr1$map)
+
+# chromosome 2
+chr2_output_combined <- process_chromosome_data(2, null_model_chr2, "ukbxxxxx", geno_chr2$map)
+
+# chromosome 3
+chr3_output_combined <- process_chromosome_data(3, null_model_chr3, "ukbxxxxx", geno_chr3$map)
+
+# chromosome 4
+chr4_output_combined <- process_chromosome_data(4, null_model_chr4, "ukbxxxxx", geno_chr4$map)
+
+# chromosome 5
+chr5_output_combined <- process_chromosome_data(5, null_model_chr5, "ukbxxxxx", geno_chr5$map)
+
+# chromosome 6
+chr6_output_combined <- process_chromosome_data(6, null_model_chr6, "ukbxxxxx", geno_chr6$map)
+
+# chromosome 7
+chr7_output_combined <- process_chromosome_data(7, null_model_chr7, "ukbxxxxx", geno_chr7$map)
+
+# chromosome 8
+chr8_output_combined <- process_chromosome_data(8, null_model_chr8, "ukbxxxxx", geno_chr8$map)
+
+# chromosome 9
+chr9_output_combined <- process_chromosome_data(9, null_model_chr9, "ukbxxxxx", geno_chr9$map)
+
+# chromosome 10
+chr10_output_combined <- process_chromosome_data(10, null_model_chr10, "ukbxxxxx", geno_chr10$map)
+
+# chromosome 11
+chr11_output_combined <- process_chromosome_data(11, null_model_chr11, "ukbxxxxx", geno_chr11$map)
+
+# chromosome 12
+chr12_output_combined <- process_chromosome_data(12, null_model_chr12, "ukbxxxxx", geno_chr12$map)
+
+# chromosome 13
+chr13_output_combined <- process_chromosome_data(13, null_model_chr13, "ukbxxxxx", geno_chr13$map)
+
+# chromosome 14
+chr14_output_combined <- process_chromosome_data(14, null_model_chr14, "ukbxxxxx", geno_chr14$map)
+
+# chromosome 15
+chr15_output_combined <- process_chromosome_data(15, null_model_chr15, "ukbxxxxx", geno_chr15$map)
+
+# chromosome 16
+chr16_output_combined <- process_chromosome_data(16, null_model_chr16, "ukbxxxxx", geno_chr16$map)
+
+# chromosome 17
+chr17_output_combined <- process_chromosome_data(17, null_model_chr17, "ukbxxxxx", geno_chr17$map)
+
+# chromosome 18
+chr18_output_combined <- process_chromosome_data(18, null_model_chr18, "ukbxxxxx", geno_chr18$map)
+
+# chromosome 19
+chr19_output_combined <- process_chromosome_data(19, null_model_chr19, "ukbxxxxx", geno_chr19$map)
+
+# chromosome 20
+chr20_output_combined <- process_chromosome_data(20, null_model_chr20, "ukbxxxxx", geno_chr20$map)
+
+# chromosome 21
+chr21_output_combined <- process_chromosome_data(21, null_model_chr21, "ukbxxxxx", geno_chr21$map)
+
+# chromosome 22
+chr22_output_combined <- process_chromosome_data(22, null_model_chr22, "ukbxxxxx", geno_chr22$map)
+
+#################################
+### 7. Combine results ##########
+
+spacox_colic_to_colic_gwas <- rbind(chr1_output_combined,
+                       chr2_output_combined,
+                       chr3_output_combined,
+                       chr4_output_combined,
+                       chr5_output_combined,
+                       chr6_output_combined,
+                       chr7_output_combined,
+                       chr8_output_combined,
+                       chr9_output_combined,
+                       chr10_output_combined,
+                       chr11_output_combined,
+                       chr12_output_combined,
+                       chr13_output_combined,
+                       chr14_output_combined,
+                       chr15_output_combined,
+                       chr16_output_combined,
+                       chr17_output_combined,
+                       chr18_output_combined,
+                       chr19_output_combined,
+                       chr20_output_combined,
+                       chr21_output_combined,
+                       chr22_output_combined
+)
+
+#################################
+### 8. Examine results ##########
+
+manhattan(spacox_colic_to_colic_gwas,
+          chr = "CHR",
+          bp = "physical.pos",
+          p = "p.value.spa",
+          snp = "markerID",
+          suggestiveline = -log10(1e-05),
+          genomewideline = -log10(5e-08),
+          logp = TRUE,
+          annotateTop = TRUE,
+          annotatePval = TRUE
+)
+
+qq(spacox_colic_to_colic_gwas$p.value.spa)

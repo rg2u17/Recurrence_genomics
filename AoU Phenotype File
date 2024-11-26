@@ -596,6 +596,30 @@ wide_df = pd.merge(merged_df_1, overall_person_df, on='person_id', how='left')
 # Ensure final_date column is timezone naive
 wide_df['final_date'] = pd.to_datetime(wide_df['final_date']).dt.tz_localize(None)
 
+# Ensure 'date_time' is in datetime format
+combined_df['date_time'] = pd.to_datetime(combined_df['date_time'])
+
+# Sort the dataframe by participant_id and date_of_code
+combined_df = combined_df.sort_values(by=['person_id', 'date_time'])
+
+# Calculate the difference between successive dates
+combined_df['date_diff'] = combined_df.groupby('person_id')['date_time'].diff().dt.days
+
+# Count the number of occurrences where the difference is greater than 6 months (365 / 2)
+count_diff = combined_df.groupby('person_id').apply(lambda x: (x['date_diff'] > (365 / 2)).sum())
+
+# Count the number of occurrences where the difference is greater than 6 months & <3 years
+filtered_data = combined_df[(combined_df['date_diff'] > (365 / 2)) & (combined_df['date_diff'] < (365 * 3))]
+
+# Count the number of occurrences where the difference is within the specified range
+filtered_count_diff = filtered_data.groupby('person_id').size()
+
+# Count the number of occurrences where the difference is greater than 6 months & <2 years
+filtered_data_2yr = combined_df[(combined_df['date_diff'] > (365 / 2)) & (combined_df['date_diff'] < (365 * 2))]
+
+# Count the number of occurrences where the difference is within the specified range
+filtered_2yr_count_diff = filtered_data_2yr.groupby('person_id').size()
+
 #############################
 ### 6. Get time to event data
 
@@ -666,6 +690,7 @@ wide_df['age_at_first_stone'] = calculate_age_at_first_stone(wide_df)
 #############################
 ### 7. Finalise phenotype file
 
+# Binary phenotype
 symptomatic_recurrence_data = wide_df[['person_id', 'recurrence', 'time_to_event', 'gender', 'age_at_first_stone']]
 
 symptomatic_recurrence_data = pd.DataFrame(symptomatic_recurrence_data)
@@ -692,6 +717,22 @@ print(rows_with_nulls)
 # Remove rows with null values
 symptomatic_recurrence_data_cleaned = symptomatic_recurrence_data.dropna()
 
+# Quantitative phenotype
+aou_quant_pheno = count_diff 
+
+# Create IID and FID columns from person_id
+aou_quant_pheno['IID'] = aou_quant_pheno['person_id']
+aou_quant_pheno['FID'] = aou_quant_pheno['person_id']
+aou_quant_pheno['pheno'] = aou_quant_pheno['recurrence']
+
+# Remove person_id column
+aou_quant_pheno = aou_quant_pheno.drop(columns=['person_id','recurrence'])
+
+# Reorder columns: IID, FID, pheno, and then everything else
+# List columns in desired order
+column_order = ['IID', 'FID', 'pheno'] + [col for col in aou_quant_pheno.columns if col not in ['IID', 'FID', 'pheno']]
+aou_quant_pheno = aou_quant_pheno[column_order]
+
 #############################
 ### 8. Save to workspace bucket
 
@@ -717,6 +758,26 @@ my_dataframe = km_recurrence
 
 # Replace 'test.csv' with THE NAME of the file you're going to store in the bucket (don't delete the quotation marks)
 destination_filename = 'symptomatic_recurrence_data_caucasian.csv'
+
+# save dataframe in a csv file in the same workspace as the notebook
+my_dataframe.to_csv(destination_filename, index=False)
+
+# get the bucket name
+my_bucket = os.getenv('WORKSPACE_BUCKET')
+
+# copy csv file to the bucket
+args = ["gsutil", "cp", f"./{destination_filename}", f"{my_bucket}/data/"]
+output = subprocess.run(args, capture_output=True)
+
+# print output from gsutil
+output.stderr
+
+
+# Quantitative Phenotype file
+my_dataframe = aou_quant_pheno   
+
+# Replace 'test.csv' with THE NAME of the file you're going to store in the bucket (don't delete the quotation marks)
+destination_filename = 'aou_quant_pheno.csv'
 
 # save dataframe in a csv file in the same workspace as the notebook
 my_dataframe.to_csv(destination_filename, index=False)

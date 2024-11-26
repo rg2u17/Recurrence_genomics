@@ -1,3 +1,5 @@
+# Written for terminal interface
+
 dx run prsice2 \
 --base-assoc regenie_output_10yr_colic_to_colic.txt             # can amend to alternative GWAS summary stats file if necessary
 --plink_bed ukb_cal_chr1_22_v2_merged_amended_5.bed             # needs to be run chromosome wide hence merged file

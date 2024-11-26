@@ -1,3 +1,5 @@
+# Written for RStudio but could also be run in Jupyter notebook
+
 #################################
 ### 1. install packages ########
 
@@ -31,7 +33,7 @@ library(SPACox)
 #################################
 ### 2. load phenotype file ######
 
-# This presumes colic_to_colic_time_to_event2 is already created 
+# This presumes colic_to_colic_time_to_event2 is already created & been downloaded into the environment using dx download
 
 colic_to_colic_time_to_event <- read.delim("colic_to_colic_time_to_event2.txt")
 colic_to_colic_time_to_event$IID <- as.integer(colic_to_colic_time_to_event$IID)
@@ -42,6 +44,8 @@ colic_to_colic_time_to_event$age_at_recruitment <- as.integer(colic_to_colic_tim
 
 #################################
 ### 3. load genotype files ######
+
+# This presumes chromosome files have been downloaded into the environment using dx download
 
 snp_readBed("ukbxxxxx_c1_b0_v2_filtered.bed") # Amend ukbxxxxx to unique identifier for project 
 snp_readBed("ukbxxxxx_c2_b0_v2_filtered.bed")

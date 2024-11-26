@@ -1,0 +1,375 @@
+######################### File Extensions for LDpred2 colic to colic 5yr 
+
+dx download "/GWAS for PRS/Old Material/Amended QC/ukb_cal_chr1_22_v2_merged_stone_formers_only.bed"
+dx download "/GWAS for PRS/Old Material/Amended QC/ukb_cal_chr1_22_v2_merged_stone_formers_only.bim"
+dx download "/GWAS for PRS/Old Material/Amended QC/ukb_cal_chr1_22_v2_merged_stone_formers_only.fam"
+
+dx download "/GWAS for PRS/5 year colic to colic/GWAS for PRS/LDpred2/ukb_cal_chr1_22_v2_merged_5yr_colic_to_colic_train_variants.bed"
+dx download "/GWAS for PRS/5 year colic to colic/GWAS for PRS/LDpred2/ukb_cal_chr1_22_v2_merged_5yr_colic_to_colic_train_variants.fam"
+dx download "/GWAS for PRS/5 year colic to colic/GWAS for PRS/LDpred2/ukb_cal_chr1_22_v2_merged_5yr_colic_to_colic_train_variants.bim"
+
+dx download "/GWAS for PRS/5 year colic to colic/New Pheno File/pheno_file_5yr_colic_to_colic2_test.txt"
+
+dx download "/GWAS for PRS/5 year colic to colic/New Pheno File/pheno_file_5yr_colic_to_colic2_train.txt"
+
+dx download "/GWAS for PRS/5 year colic to colic/GWAS for PRS/Concatenated GWAS for PRS/regenie_output_5yr_colic_to_colic_train_output.txt"
+
+
+dx download "/GWAS for PRS/LDpred2/Pheno IDs/ukb_cal_chr1_22_v2_merged_amended_5_colic_to_colic.bed"
+dx download "/GWAS for PRS/LDpred2/Pheno IDs/ukb_cal_chr1_22_v2_merged_amended_5_colic_to_colic.bim"
+dx download "/GWAS for PRS/LDpred2/Pheno IDs/ukb_cal_chr1_22_v2_merged_amended_5_colic_to_colic.fam"
+
+
+######################## File Extensions for LDpred2 Quantitative GWAS
+dx download "/GWAS for PRS/QC/Filter by Stone Formers/ukb_cal_chr1_22_v2_merged_stone_formers_only.bed"
+dx download "/GWAS for PRS/QC/Filter by Stone Formers/ukb_cal_chr1_22_v2_merged_stone_formers_only.bim"
+dx download "/GWAS for PRS/QC/Filter by Stone Formers/ukb_cal_chr1_22_v2_merged_stone_formers_only.fam"
+
+dx download "/GWAS for PRS/Quant GWAS/PRSice2/Regenie/colic_to_colic_regenie_quant2.txt"
+
+dx download "/GWAS for PRS/5 year colic to colic/New Pheno File/pheno_file_5yr_colic_to_colic2_test.txt"
+
+dx download "/GWAS for PRS/5 year colic to colic/New Pheno File/pheno_file_5yr_colic_to_colic2_train.txt"
+
+
+######################## Generic backup / restore codes
+
+dx-backup-folder
+
+dx-restore-folder /.Backups/
+
+
+########################  Rscript for LDpred2
+
+# Load packages 
+install.packages("bigsnpr")
+install.packages("dplyr")
+install.packages("magrittr")
+install.packages("bigreadr")
+install.packages("ggplot2")
+install.packages("R.utils")
+library(bigsnpr)
+library(dplyr)
+library(magrittr)
+library(bigreadr)
+library(ggplot2)
+library(R.utils)
+library(Matrix)
+
+# Read in training and test sets (80/20 split)
+ind.test_ids <-
+  read.delim("pheno_file_5yr_colic_to_colic2_test.txt",
+             header = TRUE)
+
+ind.val_ids <-
+  read.delim("pheno_file_5yr_colic_to_colic2_train.txt",
+             header = TRUE)
+
+# Read from bed/bim/fam, it generates .bk and .rds files.
+snp_readBed("ukb_cal_chr1_22_v2_merged_5yr_colic_to_colic_train_variants.bed")
+
+# Attach the "bigSNP" object in R session
+ukb_cal_chr1_22_v2_merged_stone_formers_only <-
+  snp_attach("ukb_cal_chr1_22_v2_merged_5yr_colic_to_colic_train_variants.rds")
+sumstats <-
+  read.delim("colic_to_colic_regenie_quant2.txt")
+
+#sumstats <- sumstats %>% subset(select = c(rsid,
+#                                           chr,
+#                                           pos,
+#                                           a0,
+#                                           a1,
+#                                           beta,
+#                                           beta_se,
+#                                           N,
+#                                           p))
+
+sumstats <- sumstats %>% mutate(beta_se = BETA / sqrt(-2 * log(P))) %>% mutate(rsid = SNP,
+                                           chr = CHR,
+                                           pos = BP,
+                                           a0 = A1,
+                                           a1 = A2,
+                                           beta = BETA,
+                                           p = P) %>% subset(select = c(rsid,
+                                           chr,
+                                           pos,
+                                           a0,
+                                           a1,
+                                           beta,
+                                           beta_se,
+                                           p))
+
+print(str(ukb_cal_chr1_22_v2_merged_stone_formers_only))
+
+# Get aliases for useful slots
+G   <- ukb_cal_chr1_22_v2_merged_stone_formers_only$genotypes
+G_ids <- ukb_cal_chr1_22_v2_merged_stone_formers_only$fam$sample.ID
+CHR <- ukb_cal_chr1_22_v2_merged_stone_formers_only$map$chromosome
+POS <- ukb_cal_chr1_22_v2_merged_stone_formers_only$map$physical.pos
+y   <- ukb_cal_chr1_22_v2_merged_stone_formers_only$fam$affection
+(NCORES <- nb_cores())
+
+set.seed(1234)
+
+# Matching variants between genotype data and summary statistics
+sumstats$n_eff <- sumstats$N
+
+print("ukb_cal_chr1_22_v2_merged_stone_formers_only$map")
+print(str(ukb_cal_chr1_22_v2_merged_stone_formers_only$map))
+
+map <-
+  setNames(ukb_cal_chr1_22_v2_merged_stone_formers_only$map[-3],
+           c("chr", "rsid", "pos", "a1", "a0"))
+
+print(str(map))
+
+df_beta <- snp_match(sumstats, map, join_by_pos = FALSE)
+
+print("df_beta")
+print(str(df_beta))
+
+#Sort validation / test sets
+set.seed(1234)
+
+# Filter ind.val_ids to get only those IDs present in G_ids
+G_ids_train <- ind.val_ids[ind.val_ids$IID %in% G_ids, ]
+
+# Filter ind.test_ids to get only those IDs present in G_ids
+G_ids_test <- ind.test_ids[ind.test_ids$IID %in% G_ids, ]
+
+# Define ind.val based on the filtered G_ids_train IIDs
+ind.val <- which(G_ids %in% G_ids_train$IID)
+
+# Define ind.test based on the filtered G_ids_test IIDs
+ind.test <- which(G_ids %in% G_ids_test$IID)
+
+# Get the IID values for the validation and test sets
+IID_val <- G_ids[ind.val]
+IID_test <- G_ids[ind.test]
+
+print("IID_test")
+print(str(IID_test))
+
+# On disk sparse genome-wide correlation matrix
+tmpr <- tempfile(tmpdir = "tmpdir")
+
+print("Temporary file set up successfully")
+
+# Compute correlations between variants
+# convert physical positions (in bp) to genetic positions (in cM)
+POS2 <-
+  snp_asGeneticPos(CHR, POS, dir = tempdir())
+
+print("POS2 done")
+
+# filter variants
+ind.row <- rows_along(G)
+maf <-
+  snp_MAF(G,
+          ind.row = ind.row,
+          ind.col = df_beta$`_NUM_ID_`)
+
+print("maf done")
+
+imputedG <- snp_fastImputeSimple(G)
+
+#maf_thr <- 1 / sqrt(length(ind.row))  
+
+#df_beta <- df_beta[maf > maf_thr,]
+
+print("df_beta done")
+
+for (chr in 1:22) {
+  
+  # print(chr)
+  
+  ## indices in 'df_beta'
+  ind.chr <- which(df_beta$chr == chr)
+  ## indices in 'G'
+  ind.chr2 <- df_beta$`_NUM_ID_`[ind.chr]
+  
+  # here we compute LD matrices ourselves, BUT
+  # we recall that we provide pre-computed LD matrices that are 
+  # usually much better (larger N, LD blocks for robustness, etc)
+  corr0 <- snp_cor(imputedG, ind.col = ind.chr2, size = 3 / 1000,
+                   infos.pos = POS2[ind.chr2])
+  
+  if (chr == 1) {
+    ld <- Matrix::colSums(corr0^2)
+    corr <- as_SFBM(corr0, tmpr, compact = TRUE)
+  } else {
+    ld <- c(ld, Matrix::colSums(corr0^2))
+    corr$add_columns(corr0, nrow(corr))
+  }
+}
+
+print("LD matrix built successfully")
+
+
+print("Chi 2 length")
+print(length((df_beta$beta / df_beta$beta_se) ^ 2))
+
+print("LD length")
+print(length(ld))
+
+df_beta1 <- df_beta %>% subset(select = c(beta, beta_se, n_eff))
+
+ldsc_redone <- snp_ldsc2(corr, df_beta1)
+
+# Compute genome wide LDpred2 scores - LDpred2-auto
+ldsc <- with(df_beta,
+             snp_ldsc(
+               ld,
+               length(ld),
+               chi2 = (beta / beta_se) ^ 2,
+               sample_size = n_eff,
+               blocks = NULL
+             ))
+
+# Estimate of h2 from LD Score regression
+ldsc_h2_est <- ldsc_redone[["h2"]]
+
+coef_shrink <-
+  0.95  # reduce this up to 0.4 if you have some (large) mismatch with the LD ref
+
+set.seed(1234)  # to get the same result every time
+# takes less than 2 min with 4 cores
+#multi_auto <- snp_ldpred2_auto(
+#  corr,
+#  df_beta,
+#  h2_init = ldsc_h2_est,
+#  vec_p_init = seq_log(1e-4, 0.2, length.out = 30),
+# use_MLE = FALSE,  # uncomment if you have convergence issues or when power is low (need v1.11.9)
+#  allow_jump_sign = FALSE,
+#  shrink_corr = coef_shrink
+#)
+
+set.seed(1234)
+batch_size <- 1000
+num_snps <- nrow(df_beta)  # Total number of SNPs
+num_batches <- ceiling(num_snps / batch_size)  # Number of batches
+
+multi_auto <- snp_ldpred2_auto(
+  corr,
+  df_beta1,
+  h2_init = ldsc_h2_est,
+  vec_p_init = seq_log(1e-10, 1, length.out = 300),
+  #ncores = NCORES,
+  use_MLE = FALSE,  # uncomment if you have convergence issues or when power is low (need v1.11.9)
+  allow_jump_sign = FALSE,
+  shrink_corr = coef_shrink,
+  verbose = TRUE
+)
+str(multi_auto, max.level = 1)
+
+
+# Plot z-scores and save
+auto <- multi_auto[[1]]  # first chain
+plot_grid(
+  qplot(y = auto$path_p_est) + 
+    theme_bigstatsr() + 
+    geom_hline(yintercept = auto$p_est, col = "blue") +
+    scale_y_log10() +
+    labs(y = "p"),
+  qplot(y = auto$path_h2_est) + 
+    theme_bigstatsr() + 
+    geom_hline(yintercept = auto$h2_est, col = "blue") +
+    labs(y = "h2"),
+  ncol = 1, align = "hv"
+)
+
+# Automatically filter bad chains
+(range <- sapply(multi_auto, function(auto) diff(range(auto$corr_est))))
+(keep <- which(range > (0.95 * quantile(range, 0.95, na.rm = TRUE))))
+
+#Final predictions
+beta_auto <- rowMeans(sapply(multi_auto[keep], function(auto) auto$beta_est))
+pred_auto <- big_prodVec(G, beta_auto, ind.row = ind.test, ind.col = df_beta[["_NUM_ID_"]])
+pred_auto_identified <- cbind(IID_test, 
+                              pred_auto)
+
+write.table((pcor(pred_auto, y[ind.test], NULL)),
+            file = "partial_correlation.txt",
+            quote = FALSE,
+            sep = " ",
+            row.names = FALSE
+)
+
+write.csv(pred_auto_identified,
+          file = "ldpred_auto_colic_to_colic.csv")
+
+###########
+# Grid model
+(h2_seq <- round(ldsc_h2_est * c(0.3, 0.7, 1, 1.4), 4))
+(p_seq <- signif(seq_log(1e-8, 1, length.out = 300), 2))
+(params <- expand.grid(p = p_seq, h2 = h2_seq, sparse = c(FALSE, TRUE)))
+set.seed(1)  # to get the same result every time
+# takes less than 2 min with 4 cores
+beta_grid <- snp_ldpred2_grid(corr, df_beta1, params)
+pred_grid <- big_prodMat(imputedG, beta_grid, ind.col = df_beta[["_NUM_ID_"]])
+params$score <- apply(pred_grid[ind.val, ], 2, function(x) {
+  if (all(is.na(x))) return(NA)
+  summary(lm(y[ind.val] ~ x))$coef["x", 3]
+  # summary(glm(y[ind.val] ~ x, family = "binomial"))$coef["x", 3]
+})
+
+ggplot(params, aes(x = p, y = score, color = as.factor(h2))) +
+  theme_bigstatsr() +
+  geom_point() +
+  geom_line() +
+  scale_x_log10(breaks = 10^(-5:0), minor_breaks = params$p) +
+  facet_wrap(~ sparse, labeller = label_both) +
+  labs(y = "GLM Z-Score", color = "h2") +
+  theme(legend.position = "top", panel.spacing = unit(1, "lines"))
+
+params %>%
+  mutate(sparsity = colMeans(beta_grid == 0), id = row_number()) %>%
+  arrange(desc(score)) %>%
+  mutate_at(c("score", "sparsity"), round, digits = 3) %>%
+  slice(1:10)
+
+best_beta_grid <- params %>%
+  mutate(id = row_number()) %>%
+  # filter(sparse) %>% 
+  arrange(desc(score)) %>%
+  slice(1) %>%
+  print() %>% 
+  pull(id) %>% 
+  beta_grid[, .]
+
+pred <- big_prodVec(imputedG, best_beta_grid, ind.row = ind.test,
+                    ind.col = df_beta[["_NUM_ID_"]])
+pcor(pred, y[ind.test], NULL)
+
+##########
+#Lassosum
+beta_lassosum2 <- snp_lassosum2(corr, df_beta1)
+(params2 <- attr(beta_lassosum2, "grid_param"))
+
+pred_grid2 <- big_prodMat(imputedG, beta_lassosum2, ind.col = df_beta[["_NUM_ID_"]])
+params2$score <- apply(pred_grid2[ind.val, ], 2, function(x) {
+  if (all(is.na(x))) return(NA)
+  summary(lm(y[ind.val] ~ x))$coef["x", 3]
+  # summary(glm(y[ind.val] ~ x, family = "binomial"))$coef["x", 3]
+})
+
+ggplot(params2, aes(x = lambda, y = score, color = as.factor(delta))) +
+  theme_bigstatsr() +
+  geom_point() +
+  geom_line() +
+  scale_x_log10(breaks = 10^(-5:0)) +
+  labs(y = "GLM Z-Score", color = "delta") +
+  theme(legend.position = "top") +
+  guides(colour = guide_legend(nrow = 1))
+
+best_grid_lassosum2 <- params2 %>%
+  mutate(id = row_number()) %>%
+  arrange(desc(score)) %>%
+  print() %>% 
+  slice(1) %>%
+  pull(id) %>% 
+  beta_lassosum2[, .]
+
+best_grid_overall <- 
+  `if`(max(params2$score, na.rm = TRUE) > max(params$score, na.rm = TRUE),
+       best_grid_lassosum2, best_beta_grid)

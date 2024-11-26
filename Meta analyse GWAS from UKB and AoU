@@ -1,3 +1,11 @@
+################################
+### 1. Install METAL ##########
+
+# Set up / installation can be found at: https://genome.sph.umich.edu/wiki/METAL_Documentation
+
+################################
+### 1. Run METAL ##########
+
 GENOMICCONTROL OFF
  
 ADDFILTER MAF>0.01
@@ -17,7 +25,7 @@ EFFECT Stat
 STDERR SE
 PVAL p.value.norm
  
-PROCESS /Users/Rob/Desktop/Metal/ukb_spacox_colic_to_colic_gwas_chr_pos.txt
+PROCESS File_path_to/ukb_spacox_colic_to_colic_gwas_chr_pos.txt        # Amend to adjust File_path_to
  
 #File 2: AoU
 MARKER markerID
@@ -28,7 +36,7 @@ EFFECT Stat
 STDERR SE
 PVAL p.value.norm
  
-PROCESS /Users/Rob/Desktop/Metal/aou_spacox_colic_to_colic_gwas_37.txt
+PROCESS File_path_to/aou_spacox_colic_to_colic_gwas_37.txt     # Amend to adjust File_path_to
 
 OUTFILE symptomatic_meta_analysis.tbl
 

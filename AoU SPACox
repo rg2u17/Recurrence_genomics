@@ -1,0 +1,217 @@
+##############################
+### 1. Setup #################
+
+# Suggest setting up Jupyter notebook - after each Return create a new cell
+
+import os
+import pandas as pd
+os.getenv("WORKSPACE_BUCKET")
+
+genomic_location = os.getenv("CDR_STORAGE_PATH")
+genomic_location
+
+from datetime import datetime
+start = datetime.now()
+
+pip install rpy2
+
+%load_ext rpy2.ipython
+
+%%R
+install.packages("devtools")
+install.packages("coxphf")
+install.packages("dplyr")
+install.packages("magrittr")
+install.packages("survival")
+install.packages("survminer")
+install.packages("ggplot2")
+install.packages("qqman")
+install.packages("bigsnpr")
+install.packages("reticulate")
+install.packages("remotes")
+
+%%R
+library(reticulate)
+library(devtools)
+library(coxphf)
+library(dplyr)
+library(magrittr)
+library(survival)
+library(survminer)
+library(ggplot2)
+library(qqman)
+library(tidyverse)
+library(remotes)
+library(bigsnpr)
+
+
+%%R
+install_github("WenjianBi/SPACox", auth_token = "AMEND TO UNIQUE AUTHORISATION CODE", force = TRUE)
+library(SPACox)
+
+
+##############################
+### 2. Get Plink files #######
+
+# Example for Chr 21
+!gsutil -u $GOOGLE_PROJECT -m cp gs://fc-aou-datasets-controlled/v7/wgs/short_read/snpindel/acaf_threshold_v7.1/plink_bed/acaf_threshold.chr21.fam .
+!gsutil -u $GOOGLE_PROJECT -m cp gs://fc-aou-datasets-controlled/v7/wgs/short_read/snpindel/acaf_threshold_v7.1/plink_bed/acaf_threshold.chr21.bim .
+!gsutil -u $GOOGLE_PROJECT -m cp gs://fc-aou-datasets-controlled/v7/wgs/short_read/snpindel/acaf_threshold_v7.1/plink_bed/acaf_threshold.chr21.bed .
+
+
+##############################
+### 3. QC Chromosome file ####
+
+%%bash
+plink --bfile acaf_threshold.chr21 \
+      --geno 0.1 \
+      --make-bed --out acaf_filtered_chr21_geno
+
+%%bash
+plink --bfile acaf_filtered_chr21_geno \
+      --maf 0.05 \
+      --mac 20 \
+      --mind 0.2 \
+      --hwe 1e-6 \
+      --make-bed --out acaf_filtered_chr21
+
+
+###############################
+### 4. Import Pheno file #####
+
+%%R
+# Create function to import CSV files from data folder
+read_bq_export_from_workspace_bucket <- function(file_path) {
+  my_bucket <- Sys.getenv('WORKSPACE_BUCKET')
+  full_path <- file.path(my_bucket, file_path)
+  
+  files <- system(paste0("gsutil ls ", full_path), intern = TRUE)
+  
+  bind_rows(
+    map(files, function(csv) {
+      message(str_glue('Loading {csv}.'))
+      chunk <- read_csv(pipe(str_glue('gsutil cat {csv}')), show_col_types = FALSE)
+      chunk
+    })
+  )
+}
+
+# Define file path for pheno file
+pheno_file_path <- "data/overall_pheno_plink.csv"
+
+colic_to_colic_time_to_event <- read_bq_export_from_workspace_bucket(pheno_file_path)
+colic_to_colic_time_to_event <- as_tibble(colic_to_colic_time_to_event)
+
+str(colic_to_colic_time_to_event)
+
+colic_to_colic_time_to_event$IID <- as.integer(colic_to_colic_time_to_event$IID)
+colic_to_colic_time_to_event$pheno <- as.integer(colic_to_colic_time_to_event$pheno)
+colic_to_colic_time_to_event$time_to_event <- as.integer(colic_to_colic_time_to_event$time_to_event)
+colic_to_colic_time_to_event$gender <- as.integer(colic_to_colic_time_to_event$gender)
+colic_to_colic_time_to_event$age_at_first_stone <- as.integer(colic_to_colic_time_to_event$age_at_first_stone)
+
+
+###############################
+### 5. Import Genotype data ###
+
+%%R
+snp_readBed("acaf_filtered_chr21.bed")
+
+%%R
+geno_chr21<-snp_attach("acaf_filtered_chr21.rds")
+
+%%R
+#IDs
+G_ids_chr21 <- geno_chr21$fam$sample.ID
+
+###############################
+### 6. SPACox step 1 - Null model 
+
+%%R
+run_SPACox_Null_Model <- function(G_ids_chr21) {
+  SPACox_Null_Model(
+    Surv(time_to_event + pheno) ~ 
+      PC1 + 
+      PC2 + 
+      PC3 + 
+      PC4 + 
+      PC5 + 
+      PC6 + 
+      PC7 + 
+      PC8 + 
+      PC9 + 
+      PC10 + 
+      gender + 
+      age_at_first_stone,
+    data = colic_to_colic_time_to_event,
+    pIDs = colic_to_colic_time_to_event$IID,
+    gIDs = G_ids_chr21
+  )
+}
+
+null_model_chr21 <- run_SPACox_Null_Model(G_ids_chr21)
+
+###############################
+### 7. SPACox step 2 - Fit model 
+
+%%R
+process_chromosome_data <- function(null_model, plink_file_name, geno_map) {
+  # Run the SPACox.plink function
+  plink_file <- paste0("acaf_filtered_chr21")
+  output_file <- paste0("chr21")
+  
+  model <- SPACox.plink(obj.null = null_model,
+                        plink.file = plink_file,
+                        output.file = output_file)
+  
+  # Read the output file
+  output <- read.delim(output_file) 
+  
+  # Filter the geno_map based on markerID in the output
+  filtered_map <- geno_map %>%
+    filter(marker.ID %in% output$markerID)
+  
+  # Combine the filtered map with the output
+  output_combined <- output %>%
+    left_join(filtered_map, by = c("markerID" = "marker.ID")) %>%
+    drop_na(p.value.spa)
+  
+  return(output_combined)
+}
+
+# Build model
+output_combined <- process_chromosome_data(null_model_chr21, "acaf_filtered_chr21", geno_chr21$map)
+
+
+spacox_colic_to_colic_gwas_chr21 <- output_combined
+
+###############################
+### 7. Examine Results ########
+
+%%R
+manhattan(spacox_colic_to_colic_gwas_chr21,
+          chr = "chromosome",
+          bp = "physical.pos",
+          p = "p.value.norm",
+          snp = "markerID",
+          suggestiveline = -log10(1e-05),
+          genomewideline = -log10(5e-08),
+          logp = TRUE,
+          annotateTop = TRUE,
+          annotatePval = TRUE
+)
+
+%%R
+qq(spacox_colic_to_colic_gwas_chr21$p.value.norm)
+
+###############################
+### 8. Save Results to Bucket #
+
+%%R
+write.csv(spacox_colic_to_colic_gwas_chr21, file = "aou_spacox_colic_to_colic_gwas_chr21.csv", row.names = FALSE)
+
+bucket = os.getenv("WORKSPACE_BUCKET")
+!gsutil -m cp aou_spacox_colic_to_colic_gwas_chr21.csv {bucket}/data/
+
+# Check file has saved
+!gsutil -m ls {bucket}/data/

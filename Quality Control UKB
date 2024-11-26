@@ -8,7 +8,7 @@ ls *.bed | sed -e 's/.bed//g'> files_to_merge.txt; plink --merge-list files_to_m
 #################################
 ### 2. Quality Control of Plink BED files
 
-# Use merged BED file
+# QC merged BED file
 
 plink --bfile ukb_cal_chr1_22_v2_merged --geno 0.1 --mind 0.2 --make-bed --out ukb_cal_chr1_22_v2_merged_1
 plink --bfile ukb_cal_chr1_22_v2_merged_1 --geno 0.02 --mind 0.02 --make-bed --out ukb_cal_chr1_22_v2_merged_2
@@ -16,6 +16,22 @@ plink --bfile ukb_cal_chr1_22_v2_merged_2 --maf 0.05 --make-bed --out ukb_cal_ch
 plink --bfile ukb_cal_chr1_22_v2_merged_3 --hwe 1e-6 --make-bed --out ukb_cal_chr1_22_v2_merged_hwe_filter_step1
 plink --bfile ukb_cal_chr1_22_v2_merged_hwe_filter_step1 --hwe 1e-10 --hwe-all --make-bed --out ukb_cal_chr1_22_v2_merged_hwe_filter_step2
 plink --bfile ukb_cal_chr1_22_v2_merged_hwe_filter_step2 --maf 0.05 --mac 20 --make-bed --out ukb_cal_chr1_22_v2_merged_3
+
+
+# QC inividual chromosomes
+
+#Example for Chr 22 - repeat for all chromosomes
+plink2
+--bfile ukbxxxx_c22_b0_v2 \
+--maf 0.05 \
+--mac 20 \
+--geno 0.1 \
+--hwe 1e-6 \
+--mind 0.1 \
+--write-snplist \
+--write-samples \
+--no-id-header \
+--out qc_gwas_pass_maf_0.05_chr22
 
 
 #################################

@@ -1,0 +1,359 @@
+###############################
+### 1. Setup #################
+
+# Suggest running in Jupyter notebook within AoU with new cell after each return - all in python unless otherwise specified
+
+pip install rpy2
+
+%load_ext rpy2.ipython
+
+import os
+import pandas as pd
+bucket = os.getenv("WORKSPACE_BUCKET")
+bucket
+
+%%R
+install.packages("devtools", quiet = TRUE)
+install.packages("coxphf", quiet = TRUE)
+install.packages("dplyr", quiet = TRUE)
+install.packages("magrittr", quiet = TRUE)
+install.packages("survival", quiet = TRUE)
+install.packages("survminer", quiet = TRUE)
+install.packages("ggplot2", quiet = TRUE)
+install.packages("qqman", quiet = TRUE)
+install.packages("bigsnpr", quiet = TRUE)
+install.packages("reticulate", quiet = TRUE)
+install.packages("remotes", quiet = TRUE)
+install.packages("data.table", quiet = TRUE)
+install.packages("fabricatr", quiet = TRUE)
+
+%%R
+suppressPackageStartupMessages(library(reticulate))
+suppressPackageStartupMessages(library(devtools))
+suppressPackageStartupMessages(library(coxphf))
+suppressPackageStartupMessages(library(dplyr))
+suppressPackageStartupMessages(library(magrittr))
+suppressPackageStartupMessages(library(survival))
+suppressPackageStartupMessages(library(survminer))
+suppressPackageStartupMessages(library(ggplot2))
+suppressPackageStartupMessages(library(qqman))
+suppressPackageStartupMessages(library(tidyverse))
+suppressPackageStartupMessages(library(remotes))
+suppressPackageStartupMessages(library(data.table))
+suppressPackageStartupMessages(library(fabricatr))
+suppressPackageStartupMessages(library(bigsnpr))
+
+###############################
+### 2. Import AoU Demographic data
+
+# This query represents dataset "participant_demographic_data" for domain "person" and was generated for All of Us Controlled Tier Dataset v7
+dataset_56683107_person_sql = """
+    SELECT
+        person.person_id,
+        person.gender_concept_id,
+        p_gender_concept.concept_name as gender,
+        person.birth_datetime as date_of_birth,
+        person.race_concept_id,
+        p_race_concept.concept_name as race,
+        person.ethnicity_concept_id,
+        p_ethnicity_concept.concept_name as ethnicity,
+        person.sex_at_birth_concept_id,
+        p_sex_at_birth_concept.concept_name as sex_at_birth 
+    FROM
+        `""" + os.environ["WORKSPACE_CDR"] + """.person` person 
+    LEFT JOIN
+        `""" + os.environ["WORKSPACE_CDR"] + """.concept` p_gender_concept 
+            ON person.gender_concept_id = p_gender_concept.concept_id 
+    LEFT JOIN
+        `""" + os.environ["WORKSPACE_CDR"] + """.concept` p_race_concept 
+            ON person.race_concept_id = p_race_concept.concept_id 
+    LEFT JOIN
+        `""" + os.environ["WORKSPACE_CDR"] + """.concept` p_ethnicity_concept 
+            ON person.ethnicity_concept_id = p_ethnicity_concept.concept_id 
+    LEFT JOIN
+        `""" + os.environ["WORKSPACE_CDR"] + """.concept` p_sex_at_birth_concept 
+            ON person.sex_at_birth_concept_id = p_sex_at_birth_concept.concept_id"""
+
+whole_dataset_demographics = pd.read_gbq(
+    dataset_56683107_person_sql,
+    dialect="standard",
+    use_bqstorage_api=("BIGQUERY_STORAGE_API_ENABLED" in os.environ),
+    progress_bar_type="tqdm_notebook")
+whole_dataset_demographics.head(5)
+
+# Move whole_dataset_demographics into R
+
+%%R -i whole_dataset_demographics
+whole_dataset_demographics <- as_tibble(whole_dataset_demographics)
+
+%%R
+str(whole_dataset_demographics)
+table(whole_dataset_demographics$race)
+
+%%R
+white_european_filter <- whole_dataset_demographics %>% filter(race == "White" & ethnicity != "Hispanic or Latino")
+
+%%R
+white_european_ids <- white_european_filter %>% mutate(
+    FID = person_id,
+    IID = person_id
+) %>% subset(select = c(FID,
+                       IID))
+
+# switch back to python
+white_european_ids = %Rget white_european_ids
+white_european_ids.to_csv('white_european_ids.txt', sep='\t', index=False)
+
+
+!gsutil -m cp {bucket}/data/aou_quant_pheno.csv .
+
+###############################
+### 3. Import AoU pheno file
+
+aou_quant_pheno = pd.read_csv("aou_quant_pheno.csv")
+aou_quant_pheno.head(5)
+
+%%R -i aou_quant_pheno
+aou_quant_pheno <- aou_quant_pheno %>% mutate(
+recurrence_1 = ifelse(pheno >1, 1, 0),                        # can amend to check for differing phenotypes e.g. recurrence = 2, 3, 4 etc. symptomatic episodes
+recurrence_numeric = ifelse(pheno >10, 10, pheno))
+table(aou_quant_pheno$recurrence_numeric)
+
+###############################
+### 4. Upload UKB Summary stats 
+
+# need to do this manually + ensure that it is the Lifted Over file that is uploaded (use Liftover script to do this) - NB Need to lift over from Assembly 37 -> 38
+
+# SPACox time to event GWAS
+!gsutil -m cp {bucket}/data/ukb_spacox_colic_to_colic_gwas_38.txt .
+
+ukb_spacox_colic_to_colic_gwas_38 = pd.read_csv("ukb_spacox_colic_to_colic_gwas_38.txt", sep = "\t")
+ukb_spacox_colic_to_colic_gwas_38.head(5)
+
+%%R -i ukb_spacox_colic_to_colic_gwas_38
+ukb_spacox_colic_to_colic_gwas_38 <- as_tibble(ukb_spacox_colic_to_colic_gwas_38)
+str(ukb_spacox_colic_to_colic_gwas_38)
+
+# Regenie Quantative GWAS
+!gsutil -m cp {bucket}/data/colic_to_colic_regenie_quant_38.txt .
+
+colic_to_colic_regenie_quant_38 = pd.read_csv("colic_to_colic_regenie_quant_38.txt", sep = "\t")
+colic_to_colic_regenie_quant_38.head(5)
+
+%%R -i colic_to_colic_regenie_quant_38
+colic_to_colic_regenie_quant_38 <- as_tibble(colic_to_colic_regenie_quant_38)
+str(colic_to_colic_regenie_quant_38)
+
+###############################
+### 5. Upload BED files
+
+# Need to run per Chromosome - example for Chr 22
+!gsutil -u $GOOGLE_PROJECT -m cp gs://fc-aou-datasets-controlled/v7/wgs/short_read/snpindel/acaf_threshold_v7.1/plink_bed/acaf_threshold.chr22.fam .
+!gsutil -u $GOOGLE_PROJECT -m cp gs://fc-aou-datasets-controlled/v7/wgs/short_read/snpindel/acaf_threshold_v7.1/plink_bed/acaf_threshold.chr22.bim .
+!gsutil -u $GOOGLE_PROJECT -m cp gs://fc-aou-datasets-controlled/v7/wgs/short_read/snpindel/acaf_threshold_v7.1/plink_bed/acaf_threshold.chr22.bed .
+
+%%R
+genotypes <- snp_readBed("acaf_threshold.chr22.bed")
+
+%%R
+obj.bigSNP <- snp_attach("acaf_threshold.chr22.rds")
+G <- obj.bigSNP$genotypes
+G_ids <- obj.bigSNP$fam$sample.ID
+CHR <- obj.bigSNP$map$chromosome
+POS <- obj.bigSNP$map$physical.pos
+y   <- obj.bigSNP$fam$affection
+bim_data <- read.delim("acaf_threshold.chr22.bim", header = FALSE)         # match the markerIDs/SNPs between GWAS summary stats and genotype file
+
+%%R
+colnames(bim_data) <- c("chromosome",
+                        "rsid",
+                        "genetic.pos",
+                        "physical.pos",
+                        "allele1",
+                        "allele2"
+                       )
+bim_data <- bim_data %>% unite(
+    "markerID", chromosome, physical.pos, allele1, allele2, sep = ":", remove = FALSE
+)
+str(bim_data)
+
+%%R
+bim_data1 <- bim_data %>%
+  distinct(markerID, .keep_all = TRUE) %>% subset(select = markerID)
+
+###############################
+### 6. Compute PRS from UKB SPACox GWAS summary stats for AoU patients
+
+# How many rows with p-value filter are there?
+%%R
+nrow(ukb_spacox_colic_to_colic_gwas_38 %>% filter(p.value.norm <0.117))         # Amend summary stats p value filter to reflect PRSice2 p-value filter
+
+%%R
+# Step 1: Load the GWAS summary statistics and filter by p-value threshold
+gwas_data <- ukb_spacox_colic_to_colic_gwas_38
+
+# Filter SNPs based on p-value threshold (<= 0.117)
+gwas_filtered <- gwas_data %>% filter(p.value.norm <= 0.117)                    # Amend summary stats p value filter to reflect PRSice2 p-value filter
+
+# Step 2: Extract relevant columns (SNP ID, effect allele, and beta/effect size)
+# Assuming your GWAS summary stats has columns like: SNP (ID), A1 (effect allele), BETA (effect size)
+# Modify the column names if necessary
+gwas_filtered <- gwas_filtered %>% subset(select = c(markerID,
+                                                    chromosome,
+                                                    physical.pos, 
+                                                     allele1,
+                                                    allele2,
+                                                    Stat)) %>% mutate(BETA = Stat, 
+                                                                     .keep = "unused")
+
+%%R
+# Matching SNPs
+joined_data <- gwas_filtered %>%
+  filter(markerID %in% bim_data$markerID)
+
+%%R
+# Get match indices and filter genotype matrix
+match_indices <- match(joined_data$markerID, bim_data$markerID)
+
+%%R
+# Filter  genotypes to include only the markerIDs/SNPs from the filtered GWAS summary
+G_filtered <- G[, match_indices, drop = FALSE]
+
+%%R
+# Calculate the PRS for each individual
+# PRS = sum(BETA * Genotype) for each SNP for each individual then multiply by coefficient (22.3681)
+prs_scores <- rowSums(sweep(G_filtered, 2, gwas_filtered$BETA, `*`))
+prs_scores <- prs_scores %>% as_tibble()
+
+%%R
+hist(na.omit(prs_scores$value), bins = 100)
+
+%%R
+prs_output <- as_tibble(cbind(IID = obj.bigSNP$fam$sample.ID, 
+                        prs = prs_scores$value))
+
+###############################
+### 7. Examine output
+
+%%R
+# km object
+colic_to_colic_time_to_event$time_to_event <- as.numeric(colic_to_colic_time_to_event$time_to_event/365)
+colic_to_colic_time_to_event <- colic_to_colic_time_to_event %>% left_join(
+    prs_output, by = "IID"
+)
+
+%%R
+km_time_to_event_colic_to_colic <- colic_to_colic_time_to_event
+km_time_to_event_colic_to_colic <-
+  km_time_to_event_colic_to_colic %>% drop_na(prs) %>% mutate(prs_quintiles = split_quantile(prs, type = 5))
+
+%%R
+km_time_to_event_colic_to_colic_fit <-
+  surv_fit(Surv(time_to_event, pheno) ~ prs_quintiles,
+           data =
+             km_time_to_event_colic_to_colic)
+ggsurvplot(
+  km_time_to_event_colic_to_colic_fit,
+  data = km_time_to_event_colic_to_colic,
+  censor = FALSE,
+  risk.table = TRUE,
+  surv.median.line = "hv",
+  conf.int = TRUE,
+  tables.theme = theme_cleantable(),
+  break.time.by = 1,
+  xlab = "Time (years)",
+  xlim = c(0, 10),
+  title = "Time to First Recurrence - Time to Event (Symptomatic Episodes)"
+)
+
+###############################
+### 8. Compute PRS from UKB Quantitative GWAS summary stats for AoU patients 
+
+%%R
+nrow(colic_to_colic_regenie_quant_38 %>% filter(P <=0.842619)) # Amend summary stats p value filter to reflect PRSice2 p-value filter
+
+%%R
+# Load the GWAS summary statistics and filter by p-value threshold
+gwas_data <- colic_to_colic_regenie_quant_38
+
+# Filter SNPs based on p-value threshold (<= 0.117)
+gwas_filtered <- gwas_data %>% filter(P <= 0.842619)
+
+# Extract relevant columns (SNP ID, effect allele, and beta/effect size)
+# Assuming your GWAS summary stats has columns like: SNP (ID), A1 (effect allele), BETA (effect size)
+# Modify the column names if necessary
+gwas_filtered <- gwas_filtered %>% subset(select = c(markerID,
+                                                    CHR,
+                                                    BP, 
+                                                     A1,
+                                                    A2,
+                                                    OR)) %>% mutate(BETA = OR, 
+                                                                     .keep = "unused")
+
+%%R
+# Matching SNPs
+joined_data <- gwas_filtered %>%
+  filter(markerID %in% bim_data$markerID)
+
+%%R
+# Get match indices and filter genotype matrix
+match_indices <- match(joined_data$markerID, bim_data$markerID)
+
+%%R
+# Filter genotypes to include only the markerIDs/SNPs from the filtered GWAS summary
+G_filtered <- G[, match_indices, drop = FALSE]
+
+%%R
+G_filtered_clean <- G_filtered[, colSums(is.na(G_filtered)) == 0]
+
+%%R
+# Calculate PRS for each individual
+# PRS = sum(BETA * Genotype) for each SNP for each individual
+prs_scores <- rowSums(sweep(G_filtered_clean, 2, joined_data$BETA, `*`))
+
+%%R
+prs_output <- as_tibble(cbind(IID = obj.bigSNP$fam$sample.ID, 
+                        prs = prs_scores$value))
+
+###############################
+### 9. Examine output #########
+
+%%R
+prs_scores <- prs_scores %>% as_tibble()
+
+%%R
+hist(na.omit(prs_scores$value), bins = 100)
+
+%%R
+aou_quant_pheno_with_prs <- aou_quant_pheno %>% left_join(prs_output, by = "IID")
+
+# Make bar chart of Number of Recurrences split by PRS decile
+%%R
+prs2 <- subset(aou_quant_pheno_with_prs,
+               select = c(recurrence_numeric,
+                          prs)) %>% na.omit()
+prs2 <- prs2 %>% mutate(prs_deciles = split_quantile(prs, type = 10)) %>% na.omit()
+prs2 %>% ggplot(aes(x = prs_deciles, group = recurrence_numeric, fill = recurrence_numeric)) + geom_bar()
+
+# histogram of PRS subdivided by Recurrence number
+%%R
+prs_histogram <- prs2 %>% ggplot(aes(x = prs, group = recurrence_numeric, fill = recurrence_numeric)) +
+  geom_histogram(position = "identity",
+                 alpha = 0.5) + theme_bw()
+prs_histogram
+
+###############################
+### 10. filter by White European descent - UKB analyses all done in participants of white european ancestry - reasonable evidence that PRS' work more effectively in single ancestry rather than cross-ancestry
+
+%%R
+prs2_white <- aou_quant_pheno_with_prs %>% filter(IID %in% white_european_ids$IID) %>% subset(
+               select = c(recurrence_numeric,
+                          prs)) %>% na.omit() 
+prs2_white <- prs2_white %>% mutate(prs_deciles = split_quantile(prs, type = 10)) %>% na.omit()
+prs2_white %>% ggplot(aes(x = prs_deciles, group = recurrence_numeric, fill = recurrence_numeric)) + geom_bar()
+
+%%R
+prs_histogram_white <- prs2_white %>% ggplot(aes(x = prs, group = recurrence_numeric, fill = recurrence_numeric)) +
+  geom_histogram(position = "identity",
+                 alpha = 0.5) + theme_bw()
+prs_histogram_white

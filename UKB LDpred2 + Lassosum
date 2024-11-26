@@ -1,5 +1,8 @@
-######################### File Extensions for LDpred2 colic to colic 5yr 
+# This script was built for RStudio, but could also be run with Jupyter notebooks (would need cell magic %%bash for downloads)
 
+
+######################### File Extensions for LDpred2 colic to colic 5yr 
+# run with bash in terminal window in RStudio, or use cell magic in Jupyter notebook
 dx download "/GWAS for PRS/Old Material/Amended QC/ukb_cal_chr1_22_v2_merged_stone_formers_only.bed"
 dx download "/GWAS for PRS/Old Material/Amended QC/ukb_cal_chr1_22_v2_merged_stone_formers_only.bim"
 dx download "/GWAS for PRS/Old Material/Amended QC/ukb_cal_chr1_22_v2_merged_stone_formers_only.fam"
@@ -73,16 +76,6 @@ ukb_cal_chr1_22_v2_merged_stone_formers_only <-
   snp_attach("ukb_cal_chr1_22_v2_merged_5yr_colic_to_colic_train_variants.rds")
 sumstats <-
   read.delim("colic_to_colic_regenie_quant2.txt")
-
-#sumstats <- sumstats %>% subset(select = c(rsid,
-#                                           chr,
-#                                           pos,
-#                                           a0,
-#                                           a1,
-#                                           beta,
-#                                           beta_se,
-#                                           N,
-#                                           p))
 
 sumstats <- sumstats %>% mutate(beta_se = BETA / sqrt(-2 * log(P))) %>% mutate(rsid = SNP,
                                            chr = CHR,

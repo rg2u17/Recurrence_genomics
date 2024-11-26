@@ -1,0 +1,38 @@
+#################################
+### 1. Merge Imputed Genotype Plink BED files
+
+# Requires files_to_merge.txt (details unique project identifier for imputed genotype plink files) & all the imputed genotype plink files within UKB
+
+ls *.bed | sed -e 's/.bed//g'> files_to_merge.txt; plink --merge-list files_to_merge.txt --make-bed --out ukb_cal_chr1_22_v2_merged; rm files_to_merge.txt;
+
+#################################
+### 2. Quality Control of Plink BED files
+
+# Use merged BED file
+
+plink --bfile ukb_cal_chr1_22_v2_merged --geno 0.1 --mind 0.2 --make-bed --out ukb_cal_chr1_22_v2_merged_1
+plink --bfile ukb_cal_chr1_22_v2_merged_1 --geno 0.02 --mind 0.02 --make-bed --out ukb_cal_chr1_22_v2_merged_2
+plink --bfile ukb_cal_chr1_22_v2_merged_2 --maf 0.05 --make-bed --out ukb_cal_chr1_22_v2_merged_3
+plink --bfile ukb_cal_chr1_22_v2_merged_3 --hwe 1e-6 --make-bed --out ukb_cal_chr1_22_v2_merged_hwe_filter_step1
+plink --bfile ukb_cal_chr1_22_v2_merged_hwe_filter_step1 --hwe 1e-10 --hwe-all --make-bed --out ukb_cal_chr1_22_v2_merged_hwe_filter_step2
+plink --bfile ukb_cal_chr1_22_v2_merged_hwe_filter_step2 --maf 0.05 --mac 20 --make-bed --out ukb_cal_chr1_22_v2_merged_3
+
+
+#################################
+### 3. Quality Control of Plink BGEN files
+
+#Example for Chr 22 - repeat for all chromosomes
+
+plink2 
+--bgen ukbxxxx_c22_b0_v3.bgen \
+--ref-first \
+--sample ukbxxxxx_c22_b0_v3.sample \
+--maf 0.05 \
+--mac 20 \
+--geno 0.1 
+--hwe 1e-6 \
+--mind 0.1 \
+--write-snplist allow-dups \
+--write-samples \
+--no-id-header \
+--out qc_pass_imputed_geno_chr22

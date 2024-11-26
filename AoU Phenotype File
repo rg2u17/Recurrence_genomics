@@ -1,0 +1,735 @@
+#############################
+### 1. Setup ################
+
+# Suggest setting up Jupyter notebook with new cell after each return
+
+import pandas
+import os
+
+#############################
+### 2. Import Condition Data 
+
+# This query represents dataset "Kidney stones - symptomatic occurrence >6 months" for domain "condition" and was generated for All of Us Controlled Tier Dataset v7
+dataset_48584120_condition_sql = """
+    SELECT
+        c_occurrence.person_id,
+        c_occurrence.condition_concept_id,
+        c_standard_concept.concept_name as standard_concept_name,
+        c_standard_concept.concept_code as standard_concept_code,
+        c_standard_concept.vocabulary_id as standard_vocabulary,
+        c_occurrence.condition_start_datetime,
+        c_occurrence.condition_end_datetime,
+        c_occurrence.condition_type_concept_id,
+        c_type.concept_name as condition_type_concept_name,
+        c_occurrence.stop_reason,
+        c_occurrence.visit_occurrence_id,
+        visit.concept_name as visit_occurrence_concept_name,
+        c_occurrence.condition_source_value,
+        c_occurrence.condition_source_concept_id,
+        c_source_concept.concept_name as source_concept_name,
+        c_source_concept.concept_code as source_concept_code,
+        c_source_concept.vocabulary_id as source_vocabulary,
+        c_occurrence.condition_status_source_value,
+        c_occurrence.condition_status_concept_id,
+        c_status.concept_name as condition_status_concept_name 
+    FROM
+        ( SELECT
+            * 
+        FROM
+            `""" + os.environ["WORKSPACE_CDR"] + """.condition_occurrence` c_occurrence 
+        WHERE
+            (
+                condition_concept_id IN (SELECT
+                    DISTINCT c.concept_id 
+                FROM
+                    `""" + os.environ["WORKSPACE_CDR"] + """.cb_criteria` c 
+                JOIN
+                    (SELECT
+                        CAST(cr.id as string) AS id       
+                    FROM
+                        `""" + os.environ["WORKSPACE_CDR"] + """.cb_criteria` cr       
+                    WHERE
+                        concept_id IN (201690, 201916, 4066163)       
+                        AND full_text LIKE '%_rank1]%'      ) a 
+                        ON (c.path LIKE CONCAT('%.', a.id, '.%') 
+                        OR c.path LIKE CONCAT('%.', a.id) 
+                        OR c.path LIKE CONCAT(a.id, '.%') 
+                        OR c.path = a.id) 
+                WHERE
+                    is_standard = 1 
+                    AND is_selectable = 1) 
+                OR  condition_source_concept_id IN (SELECT
+                    DISTINCT c.concept_id 
+                FROM
+                    `""" + os.environ["WORKSPACE_CDR"] + """.cb_criteria` c 
+                JOIN
+                    (SELECT
+                        CAST(cr.id as string) AS id       
+                    FROM
+                        `""" + os.environ["WORKSPACE_CDR"] + """.cb_criteria` cr       
+                    WHERE
+                        concept_id IN (1571487, 35209253, 35209281, 35209282, 35209283, 35209284, 35209290, 44825543, 44826732, 44831593, 44833664, 44837195)       
+                        AND full_text LIKE '%_rank1]%'      ) a 
+                        ON (c.path LIKE CONCAT('%.', a.id, '.%') 
+                        OR c.path LIKE CONCAT('%.', a.id) 
+                        OR c.path LIKE CONCAT(a.id, '.%') 
+                        OR c.path = a.id) 
+                WHERE
+                    is_standard = 0 
+                    AND is_selectable = 1)
+            )  
+            AND (
+                c_occurrence.PERSON_ID IN (SELECT
+                    distinct person_id  
+                FROM
+                    `""" + os.environ["WORKSPACE_CDR"] + """.cb_search_person` cb_search_person  
+                WHERE
+                    cb_search_person.person_id IN (SELECT
+                        criteria.person_id 
+                    FROM
+                        (SELECT
+                            DISTINCT person_id, entry_date, concept_id 
+                        FROM
+                            `""" + os.environ["WORKSPACE_CDR"] + """.cb_search_all_events` 
+                        WHERE
+                            person_id IN (SELECT
+                                person_id 
+                            FROM
+                                `""" + os.environ["WORKSPACE_CDR"] + """.cb_search_all_events` 
+                            WHERE
+                                concept_id IN(SELECT
+                                    DISTINCT c.concept_id 
+                                FROM
+                                    `""" + os.environ["WORKSPACE_CDR"] + """.cb_criteria` c 
+                                JOIN
+                                    (SELECT
+                                        CAST(cr.id as string) AS id       
+                                    FROM
+                                        `""" + os.environ["WORKSPACE_CDR"] + """.cb_criteria` cr       
+                                    WHERE
+                                        concept_id IN (4237124, 4121225, 4087889, 4301429, 2721096, 4341377, 4170611, 4171381)       
+                                        AND full_text LIKE '%_rank1]%'      ) a 
+                                        ON (c.path LIKE CONCAT('%.', a.id, '.%') 
+                                        OR c.path LIKE CONCAT('%.', a.id) 
+                                        OR c.path LIKE CONCAT(a.id, '.%') 
+                                        OR c.path = a.id) 
+                                WHERE
+                                    is_standard = 1 
+                                    AND is_selectable = 1) 
+                                AND is_standard = 1 
+                            UNION
+                            DISTINCT SELECT
+                                person_id 
+                            FROM
+                                `""" + os.environ["WORKSPACE_CDR"] + """.cb_search_all_events` 
+                            WHERE
+                                concept_id IN(SELECT
+                                    DISTINCT c.concept_id 
+                                FROM
+                                    `""" + os.environ["WORKSPACE_CDR"] + """.cb_criteria` c 
+                                JOIN
+                                    (SELECT
+                                        CAST(cr.id as string) AS id       
+                                    FROM
+                                        `""" + os.environ["WORKSPACE_CDR"] + """.cb_criteria` cr       
+                                    WHERE
+                                        concept_id IN (2109816, 2109804, 2109554, 2109556, 2109803, 2774224, 2109687, 2832813, 2109557, 2109563, 2109553, 2824569, 2109634, 2774220, 2109635, 2008219, 2008218, 2721096, 2819509, 2109626, 2109817, 2109641, 2003682, 2109558, 44816428)       
+                                        AND full_text LIKE '%_rank1]%'      ) a 
+                                        ON (c.path LIKE CONCAT('%.', a.id, '.%') 
+                                        OR c.path LIKE CONCAT('%.', a.id) 
+                                        OR c.path LIKE CONCAT(a.id, '.%') 
+                                        OR c.path = a.id) 
+                                WHERE
+                                    is_standard = 0 
+                                    AND is_selectable = 1) 
+                                AND is_standard = 0 )) criteria 
+                        UNION
+                        DISTINCT SELECT
+                            criteria.person_id 
+                        FROM
+                            (SELECT
+                                DISTINCT person_id, entry_date, concept_id 
+                            FROM
+                                `""" + os.environ["WORKSPACE_CDR"] + """.cb_search_all_events` 
+                            WHERE
+                                person_id IN (SELECT
+                                    person_id 
+                                FROM
+                                    `""" + os.environ["WORKSPACE_CDR"] + """.cb_search_all_events` 
+                                WHERE
+                                    concept_id IN(SELECT
+                                        DISTINCT c.concept_id 
+                                    FROM
+                                        `""" + os.environ["WORKSPACE_CDR"] + """.cb_criteria` c 
+                                    JOIN
+                                        (SELECT
+                                            CAST(cr.id as string) AS id       
+                                        FROM
+                                            `""" + os.environ["WORKSPACE_CDR"] + """.cb_criteria` cr       
+                                        WHERE
+                                            concept_id IN (201690, 4066163, 201916)       
+                                            AND full_text LIKE '%_rank1]%'      ) a 
+                                            ON (c.path LIKE CONCAT('%.', a.id, '.%') 
+                                            OR c.path LIKE CONCAT('%.', a.id) 
+                                            OR c.path LIKE CONCAT(a.id, '.%') 
+                                            OR c.path = a.id) 
+                                    WHERE
+                                        is_standard = 1 
+                                        AND is_selectable = 1) 
+                                    AND is_standard = 1 
+                                UNION
+                                DISTINCT SELECT
+                                    person_id 
+                                FROM
+                                    `""" + os.environ["WORKSPACE_CDR"] + """.cb_search_all_events` 
+                                WHERE
+                                    concept_id IN(SELECT
+                                        DISTINCT c.concept_id 
+                                    FROM
+                                        `""" + os.environ["WORKSPACE_CDR"] + """.cb_criteria` c 
+                                    JOIN
+                                        (SELECT
+                                            CAST(cr.id as string) AS id       
+                                        FROM
+                                            `""" + os.environ["WORKSPACE_CDR"] + """.cb_criteria` cr       
+                                        WHERE
+                                            concept_id IN (1571487, 44831593, 44837195, 35209290, 35209253)       
+                                            AND full_text LIKE '%_rank1]%'      ) a 
+                                            ON (c.path LIKE CONCAT('%.', a.id, '.%') 
+                                            OR c.path LIKE CONCAT('%.', a.id) 
+                                            OR c.path LIKE CONCAT(a.id, '.%') 
+                                            OR c.path = a.id) 
+                                    WHERE
+                                        is_standard = 0 
+                                        AND is_selectable = 1) 
+                                    AND is_standard = 0 )) criteria ) 
+                                AND cb_search_person.person_id IN (SELECT
+                                    person_id 
+                                FROM
+                                    `""" + os.environ["WORKSPACE_CDR"] + """.cb_search_person` p 
+                                WHERE
+                                    has_whole_genome_variant = 1 ) )
+                            )
+                        ) c_occurrence 
+                    LEFT JOIN
+                        `""" + os.environ["WORKSPACE_CDR"] + """.concept` c_standard_concept 
+                            ON c_occurrence.condition_concept_id = c_standard_concept.concept_id 
+                    LEFT JOIN
+                        `""" + os.environ["WORKSPACE_CDR"] + """.concept` c_type 
+                            ON c_occurrence.condition_type_concept_id = c_type.concept_id 
+                    LEFT JOIN
+                        `""" + os.environ["WORKSPACE_CDR"] + """.visit_occurrence` v 
+                            ON c_occurrence.visit_occurrence_id = v.visit_occurrence_id 
+                    LEFT JOIN
+                        `""" + os.environ["WORKSPACE_CDR"] + """.concept` visit 
+                            ON v.visit_concept_id = visit.concept_id 
+                    LEFT JOIN
+                        `""" + os.environ["WORKSPACE_CDR"] + """.concept` c_source_concept 
+                            ON c_occurrence.condition_source_concept_id = c_source_concept.concept_id 
+                    LEFT JOIN
+                        `""" + os.environ["WORKSPACE_CDR"] + """.concept` c_status 
+                            ON c_occurrence.condition_status_concept_id = c_status.concept_id"""
+
+symptomatic_occurrence_diagnostic_codes = pandas.read_gbq(
+    dataset_48584120_condition_sql,
+    dialect="standard",
+    use_bqstorage_api=("BIGQUERY_STORAGE_API_ENABLED" in os.environ),
+    progress_bar_type="tqdm_notebook")
+symptomatic_occurrence_diagnostic_codes.head(10)
+
+#############################
+### 3. Import Procedure Data 
+
+# This query represents dataset "Kidney stones - symptomatic occurrence >6 months" for domain "procedure" and was generated for All of Us Controlled Tier Dataset v7
+dataset_48584120_procedure_sql = """
+    SELECT
+        procedure.person_id,
+        procedure.procedure_concept_id,
+        p_standard_concept.concept_name as standard_concept_name,
+        p_standard_concept.concept_code as standard_concept_code,
+        p_standard_concept.vocabulary_id as standard_vocabulary,
+        procedure.procedure_datetime,
+        procedure.procedure_type_concept_id,
+        p_type.concept_name as procedure_type_concept_name,
+        procedure.modifier_concept_id,
+        p_modifier.concept_name as modifier_concept_name,
+        procedure.quantity,
+        procedure.visit_occurrence_id,
+        p_visit.concept_name as visit_occurrence_concept_name,
+        procedure.procedure_source_value,
+        procedure.procedure_source_concept_id,
+        p_source_concept.concept_name as source_concept_name,
+        p_source_concept.concept_code as source_concept_code,
+        p_source_concept.vocabulary_id as source_vocabulary,
+        procedure.modifier_source_value 
+    FROM
+        ( SELECT
+            * 
+        FROM
+            `""" + os.environ["WORKSPACE_CDR"] + """.procedure_occurrence` procedure 
+        WHERE
+            (
+                procedure_concept_id IN (SELECT
+                    DISTINCT c.concept_id 
+                FROM
+                    `""" + os.environ["WORKSPACE_CDR"] + """.cb_criteria` c 
+                JOIN
+                    (SELECT
+                        CAST(cr.id as string) AS id       
+                    FROM
+                        `""" + os.environ["WORKSPACE_CDR"] + """.cb_criteria` cr       
+                    WHERE
+                        concept_id IN (2721096, 4087889, 4121225, 4170611, 4171381, 4237124, 4301429, 4341377)       
+                        AND full_text LIKE '%_rank1]%'      ) a 
+                        ON (c.path LIKE CONCAT('%.', a.id, '.%') 
+                        OR c.path LIKE CONCAT('%.', a.id) 
+                        OR c.path LIKE CONCAT(a.id, '.%') 
+                        OR c.path = a.id) 
+                WHERE
+                    is_standard = 1 
+                    AND is_selectable = 1) 
+                OR  procedure_source_concept_id IN (SELECT
+                    DISTINCT c.concept_id 
+                FROM
+                    `""" + os.environ["WORKSPACE_CDR"] + """.cb_criteria` c 
+                JOIN
+                    (SELECT
+                        CAST(cr.id as string) AS id       
+                    FROM
+                        `""" + os.environ["WORKSPACE_CDR"] + """.cb_criteria` cr       
+                    WHERE
+                        concept_id IN (2003682, 2008219, 2008220, 2008221, 2109553, 2109554, 2109556, 2109557, 2109558, 2109563, 2109626, 2109634, 2109635, 2109641, 2109687, 2109803, 2109804, 2109816, 2109817, 2721096, 2774214, 2774218, 2774219, 2774220, 2774224, 44816428)       
+                        AND full_text LIKE '%_rank1]%'      ) a 
+                        ON (c.path LIKE CONCAT('%.', a.id, '.%') 
+                        OR c.path LIKE CONCAT('%.', a.id) 
+                        OR c.path LIKE CONCAT(a.id, '.%') 
+                        OR c.path = a.id) 
+                WHERE
+                    is_standard = 0 
+                    AND is_selectable = 1)
+            )  
+            AND (
+                procedure.PERSON_ID IN (SELECT
+                    distinct person_id  
+                FROM
+                    `""" + os.environ["WORKSPACE_CDR"] + """.cb_search_person` cb_search_person  
+                WHERE
+                    cb_search_person.person_id IN (SELECT
+                        criteria.person_id 
+                    FROM
+                        (SELECT
+                            DISTINCT person_id, entry_date, concept_id 
+                        FROM
+                            `""" + os.environ["WORKSPACE_CDR"] + """.cb_search_all_events` 
+                        WHERE
+                            person_id IN (SELECT
+                                person_id 
+                            FROM
+                                `""" + os.environ["WORKSPACE_CDR"] + """.cb_search_all_events` 
+                            WHERE
+                                concept_id IN(SELECT
+                                    DISTINCT c.concept_id 
+                                FROM
+                                    `""" + os.environ["WORKSPACE_CDR"] + """.cb_criteria` c 
+                                JOIN
+                                    (SELECT
+                                        CAST(cr.id as string) AS id       
+                                    FROM
+                                        `""" + os.environ["WORKSPACE_CDR"] + """.cb_criteria` cr       
+                                    WHERE
+                                        concept_id IN (4237124, 4121225, 4087889, 4301429, 2721096, 4341377, 4170611, 4171381)       
+                                        AND full_text LIKE '%_rank1]%'      ) a 
+                                        ON (c.path LIKE CONCAT('%.', a.id, '.%') 
+                                        OR c.path LIKE CONCAT('%.', a.id) 
+                                        OR c.path LIKE CONCAT(a.id, '.%') 
+                                        OR c.path = a.id) 
+                                WHERE
+                                    is_standard = 1 
+                                    AND is_selectable = 1) 
+                                AND is_standard = 1 
+                            UNION
+                            DISTINCT SELECT
+                                person_id 
+                            FROM
+                                `""" + os.environ["WORKSPACE_CDR"] + """.cb_search_all_events` 
+                            WHERE
+                                concept_id IN(SELECT
+                                    DISTINCT c.concept_id 
+                                FROM
+                                    `""" + os.environ["WORKSPACE_CDR"] + """.cb_criteria` c 
+                                JOIN
+                                    (SELECT
+                                        CAST(cr.id as string) AS id       
+                                    FROM
+                                        `""" + os.environ["WORKSPACE_CDR"] + """.cb_criteria` cr       
+                                    WHERE
+                                        concept_id IN (2109816, 2109804, 2109554, 2109556, 2109803, 2774224, 2109687, 2832813, 2109557, 2109563, 2109553, 2824569, 2109634, 2774220, 2109635, 2008219, 2008218, 2721096, 2819509, 2109626, 2109817, 2109641, 2003682, 2109558, 44816428)       
+                                        AND full_text LIKE '%_rank1]%'      ) a 
+                                        ON (c.path LIKE CONCAT('%.', a.id, '.%') 
+                                        OR c.path LIKE CONCAT('%.', a.id) 
+                                        OR c.path LIKE CONCAT(a.id, '.%') 
+                                        OR c.path = a.id) 
+                                WHERE
+                                    is_standard = 0 
+                                    AND is_selectable = 1) 
+                                AND is_standard = 0 )) criteria 
+                        UNION
+                        DISTINCT SELECT
+                            criteria.person_id 
+                        FROM
+                            (SELECT
+                                DISTINCT person_id, entry_date, concept_id 
+                            FROM
+                                `""" + os.environ["WORKSPACE_CDR"] + """.cb_search_all_events` 
+                            WHERE
+                                person_id IN (SELECT
+                                    person_id 
+                                FROM
+                                    `""" + os.environ["WORKSPACE_CDR"] + """.cb_search_all_events` 
+                                WHERE
+                                    concept_id IN(SELECT
+                                        DISTINCT c.concept_id 
+                                    FROM
+                                        `""" + os.environ["WORKSPACE_CDR"] + """.cb_criteria` c 
+                                    JOIN
+                                        (SELECT
+                                            CAST(cr.id as string) AS id       
+                                        FROM
+                                            `""" + os.environ["WORKSPACE_CDR"] + """.cb_criteria` cr       
+                                        WHERE
+                                            concept_id IN (201690, 4066163, 201916)       
+                                            AND full_text LIKE '%_rank1]%'      ) a 
+                                            ON (c.path LIKE CONCAT('%.', a.id, '.%') 
+                                            OR c.path LIKE CONCAT('%.', a.id) 
+                                            OR c.path LIKE CONCAT(a.id, '.%') 
+                                            OR c.path = a.id) 
+                                    WHERE
+                                        is_standard = 1 
+                                        AND is_selectable = 1) 
+                                    AND is_standard = 1 
+                                UNION
+                                DISTINCT SELECT
+                                    person_id 
+                                FROM
+                                    `""" + os.environ["WORKSPACE_CDR"] + """.cb_search_all_events` 
+                                WHERE
+                                    concept_id IN(SELECT
+                                        DISTINCT c.concept_id 
+                                    FROM
+                                        `""" + os.environ["WORKSPACE_CDR"] + """.cb_criteria` c 
+                                    JOIN
+                                        (SELECT
+                                            CAST(cr.id as string) AS id       
+                                        FROM
+                                            `""" + os.environ["WORKSPACE_CDR"] + """.cb_criteria` cr       
+                                        WHERE
+                                            concept_id IN (1571487, 44831593, 44837195, 35209290, 35209253)       
+                                            AND full_text LIKE '%_rank1]%'      ) a 
+                                            ON (c.path LIKE CONCAT('%.', a.id, '.%') 
+                                            OR c.path LIKE CONCAT('%.', a.id) 
+                                            OR c.path LIKE CONCAT(a.id, '.%') 
+                                            OR c.path = a.id) 
+                                    WHERE
+                                        is_standard = 0 
+                                        AND is_selectable = 1) 
+                                    AND is_standard = 0 )) criteria ) 
+                                AND cb_search_person.person_id IN (SELECT
+                                    person_id 
+                                FROM
+                                    `""" + os.environ["WORKSPACE_CDR"] + """.cb_search_person` p 
+                                WHERE
+                                    has_whole_genome_variant = 1 ) )
+                            )
+                        ) procedure 
+                    LEFT JOIN
+                        `""" + os.environ["WORKSPACE_CDR"] + """.concept` p_standard_concept 
+                            ON procedure.procedure_concept_id = p_standard_concept.concept_id 
+                    LEFT JOIN
+                        `""" + os.environ["WORKSPACE_CDR"] + """.concept` p_type 
+                            ON procedure.procedure_type_concept_id = p_type.concept_id 
+                    LEFT JOIN
+                        `""" + os.environ["WORKSPACE_CDR"] + """.concept` p_modifier 
+                            ON procedure.modifier_concept_id = p_modifier.concept_id 
+                    LEFT JOIN
+                        `""" + os.environ["WORKSPACE_CDR"] + """.visit_occurrence` v 
+                            ON procedure.visit_occurrence_id = v.visit_occurrence_id 
+                    LEFT JOIN
+                        `""" + os.environ["WORKSPACE_CDR"] + """.concept` p_visit 
+                            ON v.visit_concept_id = p_visit.concept_id 
+                    LEFT JOIN
+                        `""" + os.environ["WORKSPACE_CDR"] + """.concept` p_source_concept 
+                            ON procedure.procedure_source_concept_id = p_source_concept.concept_id"""
+
+symptomatic_occurrence_procedure_codes = pandas.read_gbq(
+    dataset_48584120_procedure_sql,
+    dialect="standard",
+    use_bqstorage_api=("BIGQUERY_STORAGE_API_ENABLED" in os.environ),
+    progress_bar_type="tqdm_notebook")
+symptomatic_occurrence_procedure_codes.head(10)
+
+
+#############################
+### 4. Import and Sort Final date dataset
+
+# This query represents dataset "Final Dates" for domain "person" and was generated for All of Us Controlled Tier Dataset v7
+dataset_29499152_person_sql = """
+    SELECT
+        person.person_id,
+        p_gender_concept.concept_name as gender,
+        person.birth_datetime as date_of_birth 
+    FROM
+        `""" + os.environ["WORKSPACE_CDR"] + """.person` person 
+    LEFT JOIN
+        `""" + os.environ["WORKSPACE_CDR"] + """.concept` p_gender_concept 
+            ON person.gender_concept_id = p_gender_concept.concept_id  
+    WHERE
+        person.PERSON_ID IN (SELECT
+            distinct person_id  
+        FROM
+            `""" + os.environ["WORKSPACE_CDR"] + """.cb_search_person` cb_search_person  
+        WHERE
+            cb_search_person.person_id IN (SELECT
+                criteria.person_id 
+            FROM
+                (SELECT
+                    DISTINCT person_id, entry_date, concept_id 
+                FROM
+                    `""" + os.environ["WORKSPACE_CDR"] + """.cb_search_all_events` 
+                WHERE
+                    (concept_id IN(SELECT
+                        DISTINCT c.concept_id 
+                    FROM
+                        `""" + os.environ["WORKSPACE_CDR"] + """.cb_criteria` c 
+                    JOIN
+                        (SELECT
+                            CAST(cr.id as string) AS id       
+                        FROM
+                            `""" + os.environ["WORKSPACE_CDR"] + """.cb_criteria` cr       
+                        WHERE
+                            concept_id IN (40480457, 4042140, 4011630, 4274025, 4168335, 4094294, 4021667)       
+                            AND full_text LIKE '%_rank1]%'      ) a 
+                            ON (c.path LIKE CONCAT('%.', a.id, '.%') 
+                            OR c.path LIKE CONCAT('%.', a.id) 
+                            OR c.path LIKE CONCAT(a.id, '.%') 
+                            OR c.path = a.id) 
+                    WHERE
+                        is_standard = 1 
+                        AND is_selectable = 1) 
+                    AND is_standard = 1 )) criteria 
+            UNION
+            DISTINCT SELECT
+                criteria.person_id 
+            FROM
+                (SELECT
+                    DISTINCT person_id, entry_date, concept_id 
+                FROM
+                    `""" + os.environ["WORKSPACE_CDR"] + """.cb_search_all_events` 
+                WHERE
+                    (concept_id IN(SELECT
+                        DISTINCT c.concept_id 
+                    FROM
+                        `""" + os.environ["WORKSPACE_CDR"] + """.cb_criteria` c 
+                    JOIN
+                        (SELECT
+                            CAST(cr.id as string) AS id       
+                        FROM
+                            `""" + os.environ["WORKSPACE_CDR"] + """.cb_criteria` cr       
+                        WHERE
+                            concept_id IN (2617204, 4029205, 704057, 4180627, 2617208, 1314331, 2720580, 4237321, 4180941, 40295754, 40217302, 4302541, 4132623, 45890623, 4028908, 4072499, 2721530, 4237320, 4176642)       
+                            AND full_text LIKE '%_rank1]%'      ) a 
+                            ON (c.path LIKE CONCAT('%.', a.id, '.%') 
+                            OR c.path LIKE CONCAT('%.', a.id) 
+                            OR c.path LIKE CONCAT(a.id, '.%') 
+                            OR c.path = a.id) 
+                    WHERE
+                        is_standard = 1 
+                        AND is_selectable = 1) 
+                    AND is_standard = 1 )) criteria ) )"""
+
+overall_person_df = pandas.read_gbq(
+    dataset_29499152_person_sql,
+    dialect="standard",
+    use_bqstorage_api=("BIGQUERY_STORAGE_API_ENABLED" in os.environ),
+    progress_bar_type="tqdm_notebook")
+overall_person_df.head(5)
+
+#############################
+### 5. Merge datasets ######
+
+# Select and rename columns for symptomatic_occurrence_diagnostic_codes
+diagnostic_selected = symptomatic_occurrence_diagnostic_codes[['person_id', 'condition_start_datetime']]
+diagnostic_selected = diagnostic_selected.rename(columns={'condition_start_datetime': 'date_time'})
+
+# Select and rename columns for symptomatic_occurrence_procedure_codes
+procedure_selected = symptomatic_occurrence_procedure_codes[['person_id', 'procedure_datetime']]
+procedure_selected = procedure_selected.rename(columns={'procedure_datetime': 'date_time'})
+
+# Combine the DataFrames
+combined_df = pd.concat([diagnostic_selected, procedure_selected], ignore_index=True)
+
+# Display the result
+combined_df.info()
+
+# Convert date_time to datetime objects (ensure they are timezone-naive)
+combined_df['date_time'] = pd.to_datetime(combined_df['date_time']).dt.tz_localize(None)
+
+# Sort values by person_id and date_time
+combined_df = combined_df.sort_values(by=['person_id', 'date_time']).reset_index(drop=True)
+
+# Pivot the DataFrame to wider format
+combined_df['time_order'] = combined_df.groupby('person_id').cumcount()
+
+wide_df = combined_df.pivot(index='person_id', columns='time_order', values='date_time')
+
+# Rename the columns to time_0, time_1, etc.
+wide_df.columns = [f'time_{i}' for i in wide_df.columns]
+
+# Reset index to get person_id as a column
+wide_df1 = wide_df.reset_index()
+
+# Merge wide_df with result_df using a left join
+merged_df_1 = pd.merge(wide_df1, final_date_df, on='person_id', how='left')
+
+# Merge the result with overall_person_df using a left join
+wide_df = pd.merge(merged_df_1, overall_person_df, on='person_id', how='left')
+
+# Ensure final_date column is timezone naive
+wide_df['final_date'] = pd.to_datetime(wide_df['final_date']).dt.tz_localize(None)
+
+#############################
+### 6. Get time to event data
+
+# Define a function to calculate time_to_event and recurrence status
+def calculate_time_and_recurrence(row):
+    time_to_event = None
+    recurrence = 'no'
+    final_date = None
+    
+    for i in range(1, 50):
+        if pd.notna(row[f'time_{i}']):
+            time_difference = (row[f'time_{i}'] - row['time_0']).days
+            if time_difference > 183:  # 183 days is approximately 6 months
+                row[f'time_to_event_{i}'] = time_difference
+                row[f'recurrence_{i}'] = 'yes'
+                # Use the first time_to_event that is > 6 months
+                if time_to_event is None:
+                    time_to_event = time_difference
+                    recurrence = 'yes'
+            else:
+                row[f'time_to_event_{i}'] = time_difference
+                row[f'recurrence_{i}'] = 'no'
+        else:
+            row[f'time_to_event_{i}'] = pd.NaT
+            row[f'recurrence_{i}'] = 'no'
+    
+    # Check if no time_to_event was > 6 months, then use current_date
+    if time_to_event is None:
+        time_to_event = (row['final_date'] - row['time_0']).days
+    
+    row['time_to_event'] = time_to_event
+    row['recurrence'] = recurrence
+    return row
+
+# Apply the function to the wide DataFrame
+wide_df = wide_df.apply(calculate_time_and_recurrence, axis=1)
+
+# Generate the recurrence table
+recurrence_table = wide_df['recurrence'].value_counts().reset_index()
+recurrence_table.columns = ['Recurrence', 'Count']
+
+# Display the recurrence table
+print(recurrence_table)
+
+
+# Convert date of birth to timezone naive
+wide_df['date_of_birth'] = pd.to_datetime(wide_df['date_of_birth']).dt.tz_localize(None)
+
+# Define function to calculate age at first stone
+def calculate_age_at_first_stone(df):
+    """
+    Calculate the age at first stone for each person.
+    
+    Args:
+    - df (pd.DataFrame): DataFrame containing 'time_0' and 'date_of_birth'.
+    
+    Returns:
+    - pd.Series: A series representing the age at first stone for each person in years.
+    """
+    # Calculate the difference in days and convert to years
+    age_in_days = (df['time_0'] - df['date_of_birth']).dt.days
+    age_in_years = age_in_days / 365.25  # Approximate average year accounting for leap years
+    return age_in_years
+
+# Calculate age_at_first_stone for each row in wide_df
+wide_df['age_at_first_stone'] = calculate_age_at_first_stone(wide_df)
+
+#############################
+### 7. Finalise phenotype file
+
+symptomatic_recurrence_data = wide_df[['person_id', 'recurrence', 'time_to_event', 'gender', 'age_at_first_stone']]
+
+symptomatic_recurrence_data = pd.DataFrame(symptomatic_recurrence_data)
+
+symptomatic_recurrence_data.head(5)
+
+# Check for null values in the symptomatic_recurrence_data column
+null_values = symptomatic_recurrence_data.isnull()
+
+# Count total null values in the entire DataFrame
+total_nulls = symptomatic_recurrence_data.isnull().sum().sum()
+print("\nTotal number of null values in the DataFrame:", total_nulls)
+
+# Count null values per column
+nulls_per_column = symptomatic_recurrence_data.isnull().sum()
+print("\nNull values per column:")
+print(nulls_per_column)
+
+# Get rows with any null values
+rows_with_nulls = symptomatic_recurrence_data[symptomatic_recurrence_data.isnull().any(axis=1)]
+print("\nRows with any null values:")
+print(rows_with_nulls)
+
+# Remove rows with null values
+symptomatic_recurrence_data_cleaned = symptomatic_recurrence_data.dropna()
+
+#############################
+### 8. Save to workspace bucket
+
+bucket = os.getenv("WORKSPACE_BUCKET")
+bucket
+
+# Create IID and FID columns from person_id
+km_recurrence['IID'] = km_recurrence['person_id']
+km_recurrence['FID'] = km_recurrence['person_id']
+km_recurrence['pheno'] = km_recurrence['recurrence']
+
+# Remove person_id column
+km_recurrence = km_recurrence.drop(columns=['person_id','recurrence'])
+
+# Reorder columns: IID, FID, pheno, and then everything else
+# List columns in desired order
+column_order = ['IID', 'FID', 'pheno'] + [col for col in km_recurrence.columns if col not in ['IID', 'FID', 'pheno']]
+km_recurrence = km_recurrence[column_order]
+
+# can use generic snippet to save to bucket:
+
+my_dataframe = km_recurrence   
+
+# Replace 'test.csv' with THE NAME of the file you're going to store in the bucket (don't delete the quotation marks)
+destination_filename = 'symptomatic_recurrence_data_caucasian.csv'
+
+# save dataframe in a csv file in the same workspace as the notebook
+my_dataframe.to_csv(destination_filename, index=False)
+
+# get the bucket name
+my_bucket = os.getenv('WORKSPACE_BUCKET')
+
+# copy csv file to the bucket
+args = ["gsutil", "cp", f"./{destination_filename}", f"{my_bucket}/data/"]
+output = subprocess.run(args, capture_output=True)
+
+# print output from gsutil
+output.stderr
+
+# check if file is copied to workspace bucket
+!gsutil -m ls {bucket}/data/

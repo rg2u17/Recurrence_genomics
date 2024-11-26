@@ -1,7 +1,7 @@
 ############################################
 ### 1. Get data ###########################
 
-# This scripts assumes access to all 3 medical history data sources: Read codes, OPCS codes and ICD codes
+# This scripts assumes access to all 3 medical history data sources: Read codes, OPCS codes and ICD codes & top 10 genetic principal components - all can be derived from UKB data
 
 # 1. Read codes:
 
@@ -17,6 +17,26 @@ recurrence_data_hesin_diag <- c(participant_id, diagnoses_icd10, diagnoses_icd9)
 icd10_dates2 <- c(participant_id, age_at_recruitment, diagnoses_icd10, date_of_first_in_patient_diagnosis_icd10_array_0, ... ) # date_of_first_in_patient_diagnosis_icd10_array_0 should be extended to as many dates available
 icd10_data_extra <- c(participant_id, diagnoses_main_icd10, date_of_first_in_patient_diagnosis_main_icd10_array_0, ...) # as above for date_of_first_in_patient_diagnosis_main_icd10_array_0
 icd9_data <- c(participant_id, diagnoses_icd9, date_of_first_in_patient_diagnosis_icd9_array_0, ... , diagnoses_main_icd9, date_of_first_in_patient_diagnosis_main_icd9_array_0, ...) # date data to be extended to all available
+
+# Genetic Principal components 
+
+genotype_for_gwas <- c(participant_id,
+                       genetic_principal_components_array_1,
+                       genetic_principal_components_array_2,
+                       genetic_principal_components_array_3,
+                       genetic_principal_components_array_4,
+                       genetic_principal_components_array_5,
+                       genetic_principal_components_array_6,
+                       genetic_principal_components_array_7,
+                       genetic_principal_components_array_8,
+                       genetic_principal_components_array_9,
+                       genetic_principal_components_array_10,
+                       missingness,
+                       genotype_measurement_plate,
+                       genotype_measurement_well,
+                       genotype_measurement_batch,
+                       genetic_sex      
+)
 
 ############################################
 ### 2. Load R packages #####################

@@ -1,0 +1,37 @@
+GENOMICCONTROL OFF
+ 
+ADDFILTER MAF>0.01
+ 
+AVERAGEFREQ ON
+ 
+MINMAXFREQ ON
+ 
+VERBOSE ON
+ 
+#File 1: UKB
+MARKER markerID
+WEIGHT N
+ALLELE allele1 allele2
+FREQ MAF
+EFFECT Stat
+STDERR SE
+PVAL p.value.norm
+ 
+PROCESS /Users/Rob/Desktop/Metal/ukb_spacox_colic_to_colic_gwas_chr_pos.txt
+ 
+#File 2: AoU
+MARKER markerID
+WEIGHT N
+ALLELE allele1 allele2
+FREQ MAF
+EFFECT Stat
+STDERR SE
+PVAL p.value.norm
+ 
+PROCESS /Users/Rob/Desktop/Metal/aou_spacox_colic_to_colic_gwas_37.txt
+
+OUTFILE symptomatic_meta_analysis.tbl
+
+ANALYZE HETEROGENEITY
+
+ANALYZE

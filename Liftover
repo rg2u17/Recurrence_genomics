@@ -1,0 +1,268 @@
+#######################################
+### 1. Install packages ###############
+
+
+install.packages("BiocManager")
+BiocManager::install("rtracklayer")
+BiocManager::install("org.Hs.eg.db")
+BiocManager::install("AnnotationDbi")
+
+#######################################
+### 2. Load packages ##################
+
+library(rtracklayer)
+library(GenomicRanges)
+library(tidyverse)
+library(qqman)
+library(AnnotationDbi)
+library(org.Hs.eg.db)
+library(httr)
+library(biomaRt)
+
+#######################################
+### 3. Load data ######################
+
+# this script presumes you want to lift over a GWAS output from Assembly 37 to Assembly 38
+
+# Load in UKB GWAS results 
+plink_gwas_colic_to_colic_5yr <- read.delim("~/File Path/plink_gwas_symptomatic_5yr.txt", header = TRUE, sep = "")         # Amend File Path to GWAS output of interest
+manhattan(plink_gwas_colic_to_colic_5yr %>% filter(TEST == "ADD"))                                                         # check it is correct GWAS by examining manhattan plot
+
+plink_gwas_colic_to_colic_10yr <- read.delim("~/File Path/plink_gwas_symptomatic_10yr.txt", header = TRUE, sep = "")        # Amend File Path to GWAS output of interest
+manhattan(plink_gwas_colic_to_colic_10yr %>% filter(TEST == "ADD"))
+
+
+# Write .txt file of results
+write.table(pheno_file_5yr_colic_to_colic_pheno,
+                         "~/File Path/pheno_file_5yr_colic_to_colic_pheno.txt",
+                         quote = FALSE,
+                         sep ="\t",
+                         row.names = FALSE)
+
+
+# Load in UKB GWAS Time to Event GWAS results
+ukb_spacox_colic_to_colic_gwas1 <- read.delim("~/File Path/spacox_colic_to_colic_gwas_copy.txt") # Amend File Path to GWAS output of interest
+ukb_spacox_colic_to_colic_gwas <-
+  ukb_spacox_colic_to_colic_gwas1 %>% mutate(snp = markerID,
+                                            character = "chr",
+                                            N = 6270,
+                                            SE = sqrt(Var),
+                                            .keep = "all") %>% unite("chr_num", character, chromosome, sep = "", remove = FALSE) 
+
+ukb_spacox_colic_to_colic_gwas <-
+  ukb_spacox_colic_to_colic_gwas %>% unite("markerID", chromosome, physical.pos, allele1, allele2, sep = ":", remove = FALSE) 
+
+# Load in AoU Time to Event GWAS result
+aou_spacox_colic_to_colic <-
+  read_csv(
+    "~/File Path/aou_spacox_colic_to_colic_gwas.csv"    # Amend File Path to GWAS output of interest
+  ) 
+aou_spacox_colic_to_colic1 <-
+  aou_spacox_colic_to_colic %>% as_tibble() %>% separate(markerID, into = c("CHR", "startpos", "a0", "a1")) %>% mutate(POS = physical.pos,
+                                                                                                       END = physical.pos) %>% select(CHR,
+                                                                                                                                      POS,
+                                                                                                                                      END,
+                                                                                                                                      everything())
+
+aou_spacox_colic_to_colic1$POS <- as.numeric(aou_spacox_colic_to_colic1$POS)
+
+#######################################
+### 4. Lift Over ######################
+
+# import chain file - in this case assembly 37 -> assembly 38
+chain_file <- import.chain("~/Desktop/Howles/Recurrent Kidney stones/Metal/hg19ToHg38.over.chain")
+
+
+# Make object for lift over into a GRanges object
+ukb_spacox_colic_to_colic_gwas_bed <- GRanges(
+  seqnames = Rle(as.factor(ukb_spacox_colic_to_colic_gwas$chr_num)), # Chromosome names
+  ranges = IRanges(start = ukb_spacox_colic_to_colic_gwas$physical.pos,     # Start positions
+                   end = ukb_spacox_colic_to_colic_gwas$physical.pos)     # End positions
+)
+
+# perform liftover
+lifted_data <- liftOver(ukb_spacox_colic_to_colic_gwas_bed, chain_file) 
+
+lifted_data_df <- as.data.frame(lifted_data)
+cat("Number of lifted positions: ", nrow(lifted_data_df), "\n")
+
+# Ensure data matches
+successful_lift_idx <- which(elementNROWS(lifted_data) > 0)
+ukb_spacox_colic_to_colic_gwas_successful <- ukb_spacox_colic_to_colic_gwas[successful_lift_idx, ]
+
+ukb_spacox_colic_to_colic_gwas_38 <- cbind(
+  ukb_spacox_colic_to_colic_gwas_successful,
+  lifted_data_df
+)
+
+# Examine manhattan plot of results
+manhattan(ukb_spacox_colic_to_colic_gwas_38,
+          chr = "chromosome",
+          bp = "start",
+          p = "p.value.norm",
+          snp = "markerID",
+          suggestiveline = -log10(1e-05),
+          genomewideline = -log10(5e-08),
+          logp = TRUE,
+          annotateTop = TRUE,
+          annotatePval = TRUE)
+
+# Write output to .txt file for meta-analysis
+write.table(ukb_spacox_colic_to_colic_gwas_38,
+            "~/Desktop/Howles/Recurrent Kidney stones/Metal/ukb_spacox_colic_to_colic_gwas_38.txt",
+            quote = FALSE,
+            sep ="\t",
+            row.names = FALSE)
+
+
+
+#######################################
+### 5. Get RSIDs for AoU data #########
+
+# Presumes point 4 has been amended to convert aou_spacox_colic_to_colic from assembly 38 to 37 to get aou_spacox_colic_to_colic_37
+
+marker_data <- aou_spacox_colic_to_colic_37 %>%
+  separate(markerID, into = c("Chromosome", "Position", "Allele1", "Allele2"), sep = "[:|]") %>%
+  mutate(Position = as.integer(Position),
+         N = 14487,
+         
+         SE = sqrt(Var),
+         .keep = "all")
+
+aou_spacox_colic_to_colic_37 <- aou_spacox_colic_to_colic_37 %>%  mutate(N = 14487,
+                                                                         SE = sqrt(Var),
+                                                                         .keep = "all")
+
+write.table(aou_spacox_colic_to_colic_37,
+            "~/Desktop/Howles/Recurrent Kidney stones/Metal/aou_spacox_colic_to_colic_gwas_37.txt",
+            quote = FALSE,
+            sep ="\t",
+            row.names = FALSE)
+
+
+# Set up biomaRt
+snp_mart <- useEnsembl(biomart = "ENSEMBL_MART_SNP", 
+                       host = "grch37.ensembl.org", 
+                       dataset = "hsapiens_snp")
+
+# Function to get rsID with retry logic
+get_rsid <- function(chrom, start, end, allele1, allele2, max_attempts = 3) {
+  region <- str_c(chrom, start, end, sep = ":")
+  
+  attempt <- 1
+  while (attempt <= max_attempts) {
+    try({
+      query <- getBM(attributes = c('refsnp_id', 'allele', 'chrom_start'), 
+                     filters = 'chromosomal_region', 
+                     values = region, 
+                     mart = snp_mart)
+      
+      if (nrow(query) > 0) {
+        match_query <- query %>%
+          filter(allele == str_c(allele1, "/", allele2) | 
+                   allele == str_c(allele2, "/", allele1))
+        
+        if (nrow(match_query) > 0) {
+          return(match_query$refsnp_id[1])  # Return the first matching rsID
+        } else {
+          return(NA)  # No matching alleles found
+        }
+      } else {
+        return(NA)  # No rsID found
+      }
+    }, silent = TRUE)
+    
+    attempt <- attempt + 1
+    Sys.sleep(5)  # Wait before retrying
+  }
+  
+  warning(paste("Failed to retrieve rsID after", max_attempts, "attempts for region", region))
+  return(NA)  # Return NA if all attempts fail
+}
+
+# Function to process a batch with rowwise mutation
+process_batch <- function(batch_data) {
+  batch_data %>%
+    rowwise() %>%
+    mutate(rsID = get_rsid(chromosome, start, end, allele1, allele2)) %>%
+    ungroup()
+}
+
+# Define the batch size
+batch_size <- 50
+
+# Calculate the number of batches
+num_batches <- ceiling(nrow(marker_data) / batch_size)
+
+# Loop over each batch with a counter
+for (i in seq_len(num_batches)) {
+  batch_file <- paste0("processed_batch_", i, ".rds")
+  
+  if (file.exists(batch_file)) {
+    cat("Batch", i, "already processed. Skipping.\n")
+    next
+  }
+  
+  start_index <- (i - 1) * batch_size + 1
+  end_index <- min(i * batch_size, nrow(marker_data))
+  batch_data <- marker_data[start_index:end_index, ]
+  
+  processed_batch <- process_batch(batch_data)
+  
+  saveRDS(processed_batch, file = batch_file)
+  
+  cat("Processed and saved batch", i, "of", num_batches, "\n")
+}
+
+# Initialize an empty list to store all batches
+result_list <- list()
+
+# Load each saved batch and add it to the list
+for (i in seq_len(num_batches)) {
+  batch_file <- paste0("processed_batch_", i, ".rds")
+  batch_data <- readRDS(batch_file)
+  result_list[[i]] <- batch_data
+}
+
+# Combine all batches into a final dataframe
+final_result <- bind_rows(result_list)
+
+# Identify rows with missing rsIDs
+missing_rsID_rows <- final_result %>% filter(is.na(rsID))
+
+# Retry processing rows with missing rsIDs
+if (nrow(missing_rsID_rows) > 0) {
+  cat("Retrying rows with missing rsIDs...\n")
+  
+  retry_result <- missing_rsID_rows %>%
+    rowwise() %>%
+    mutate(rsID = get_rsid(chromosome, start, end, allele1, allele2)) %>%
+    ungroup()
+  
+  # Handle duplicates by keeping the first occurrence
+  retry_result <- retry_result %>%
+    distinct(chromosome, start, end, allele1, allele2, .keep_all = TRUE)
+  
+  # Update the final result with the retried data
+  final_result <- final_result %>%
+    rows_update(retry_result, by = c("chromosome", "start", "end", "allele1", "allele2"))
+  
+  cat("Finished retrying missing rsIDs.\n")
+}
+
+# Save the final combined result
+saveRDS(final_result, file = "final_result.rds")
+
+cat("Final result saved.\n")
+
+
+aou_spacox_colic_to_colic_37_for_prs <- final_result %>% mutate(
+SNP = rsID,
+CHR = chromosome,
+BP = physical.pos, 
+A1 = allele1,
+A2 = allele2,
+P = p.value.norm,
+OR = Stat
+) %>% select(SNP,CHR,BP, A1,A2,P,OR)
+

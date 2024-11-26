@@ -1,0 +1,76 @@
+############################
+### 1. Setup ###############
+
+# Suggest using Jupyter notebook with new cell after each return - script written in Python unless otherwise specified
+
+import pandas as pd
+import numpy as np
+import os
+from datetime import datetime
+
+start = datetime.now()
+bucket = os.getenv("WORKSPACE_BUCKET")
+bucket
+
+############################
+### 2. Get Pheno file ######
+
+pheno_path = 'gs://{WORKSPACE_BUCKET}/data/symptomatic_recurrence_data.csv' # Amend to get alternative phenotype file
+pheno_path
+
+!gsutil cp {pheno_path} .
+
+pheno = pd.read_csv("symptomatic_recurrence_data.csv")
+pheno.head(5)
+
+# Change pheno coding from 0,1 to 1,2 for plink use
+pheno.info()
+pheno.loc[pheno["pheno"] ==1, 'pheno'] = "2"
+pheno.loc[pheno["pheno"] ==0, 'pheno'] = "1"
+
+pheno.loc[pheno["gender"] ==1, "gender"] = "1"
+pheno.loc[pheno["gender"] ==0, "gender"] = "2"
+pheno.head(5)
+
+############################
+### 3. Parse Principal Components
+
+!gsutil -u $GOOGLE_PROJECT cp gs://fc-aou-datasets-controlled/v7/wgs/short_read/snpindel/aux/ancestry/ancestry_preds.tsv .
+
+ancestry_pred = pd.read_csv("ancestry_preds.tsv", delimiter="\t")
+
+ancestry_pred["pca_features"] = ancestry_pred["pca_features"].str[1:-1]
+
+PCs = ancestry_pred["pca_features"].str.split(",", n = 16, expand = True)
+PCs = PCs.astype(float)
+
+pid = ancestry_pred[["research_id"]]
+pid.head(5)
+
+columns= ["PC1","PC2","PC3","PC4","PC5","PC6","PC7","PC8","PC9","PC10","PC11","PC12","PC13","PC14","PC15","PC16"]
+PCs.columns = columns
+
+PCs_final = pd.concat([pid, PCs], axis = 1)
+PCs_final.head(5)
+
+############################
+### 4. Merge Pheno file and Principal components
+
+pheno_final = pheno.merge(PCs_final, left_on = "IID", right_on = "research_id", how = "left").drop(["research_id"], axis = 1)
+pheno_final = pheno_final.rename(columns={'IID': 'FID', 'FID': 'IID'})
+pheno_final.head(5)
+
+pheno_out = pheno_final.iloc[:,np.r_[0:22]]
+pheno_out.head(3)
+
+############################
+### 5. Save file to bucket #
+
+pheno_out.loc[pheno["pheno"] ==1, 'pheno'] = "0"
+pheno_out.loc[pheno["pheno"] ==2, 'pheno'] = "1"
+
+pheno_out.to_csv("overall_pheno_plink.tsv", index = False, header = True, sep = "\t")
+pheno_out.to_csv("overall_pheno_plink.csv", index=False, header=True)
+
+!gsutil -m cp overall_pheno_plink.tsv {bucket}/data/
+!gsutil -m cp overall_pheno_plink.csv {bucket}/data/

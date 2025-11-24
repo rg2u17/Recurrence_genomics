@@ -572,24 +572,21 @@ icd10_dates4_long3 <- icd10_dates4_long2 %>% subset(select = c(participant_id,
                                                                date_of_code))
 
 # Define chunk size
-chunk_size <- 10000  # Adjust this size depending on available memory
+chunk_size <- 10000  
 
 # Split the dataframe into chunks
 total_rows <- nrow(icd10_dates4_long3)
 num_chunks <- ceiling(total_rows / chunk_size)
 
-# Initialize an empty list to store processed chunks
+# Initialize empty list
 chunk_list <- list()
 
 for (i in 1:num_chunks) {
-  # Define start and end index for the current chunk
   start_row <- (i - 1) * chunk_size + 1
   end_row <- min(i * chunk_size, total_rows)
   
-  # Extract the chunk
   chunk <- icd10_dates4_long3[start_row:end_row, ]
   
-  # Process the chunk (separate diagnostic_code into icd_code and description)
   chunk_separated <- chunk %>%
     separate(
       diagnostic_code,
@@ -599,16 +596,16 @@ for (i in 1:num_chunks) {
       fill = "right"
     )
   
-  # Store the processed chunk in the list
-  chunk_list[[i]] <- chunk_separated
+   chunk_list[[i]] <- chunk_separated
   
-  # Verbose readout
+  
   cat("Processed chunk", i, "of", num_chunks, "\n")
 }
 
-# Combine the processed chunks back into a single dataframe
+# Combine processed chunks into single dataframe
 icd10_dates4_long3_separated <- bind_rows(chunk_list)
 
+# examine output
 head(icd10_dates4_long3_separated)
 
 icd10_dates4_long_stone_cases <- icd10_dates4_long3_separated %>%
@@ -733,7 +730,7 @@ icd10_dates4_extra_long3 <- icd10_dates4_extra_long2 %>% subset(select = c(parti
 
 ###############################
 # Define chunk size
-chunk_size <- 10000  # Adjust this size depending on available memory
+chunk_size <- 10000  
 
 # Split the dataframe into chunks
 total_rows <- nrow(icd10_dates4_extra_long3)
@@ -743,14 +740,11 @@ num_chunks <- ceiling(total_rows / chunk_size)
 chunk_list <- list()
 
 for (i in 1:num_chunks) {
-  # Define start and end index for the current chunk
   start_row <- (i - 1) * chunk_size + 1
   end_row <- min(i * chunk_size, total_rows)
   
-  # Extract the chunk
   chunk <- icd10_dates4_long3[start_row:end_row, ]
   
-  # Process the chunk (separate diagnostic_code into icd_code and description)
   chunk_separated <- chunk %>%
     separate(
       diagnostic_code,
@@ -760,14 +754,11 @@ for (i in 1:num_chunks) {
       fill = "right"
     )
   
-  # Store the processed chunk in the list
   chunk_list[[i]] <- chunk_separated
   
-  # Verbose readout
   cat("Processed chunk", i, "of", num_chunks, "\n")
 }
 
-# Combine the processed chunks back into a single dataframe
 icd10_dates4_extra_long3_separated <- bind_rows(chunk_list)
 
 ##############################
@@ -949,7 +940,7 @@ icd9_dates4_long3 <- icd9_dates4_long2 %>% subset(select = c(participant_id,
 
 ###############################
 # Define chunk size
-chunk_size <- 10000  # Adjust this size depending on available memory
+chunk_size <- 10000  
 
 # Split the dataframe into chunks
 total_rows <- nrow(icd9_dates4_long3)
@@ -959,14 +950,11 @@ num_chunks <- ceiling(total_rows / chunk_size)
 chunk_list <- list()
 
 for (i in 1:num_chunks) {
-  # Define start and end index for the current chunk
   start_row <- (i - 1) * chunk_size + 1
   end_row <- min(i * chunk_size, total_rows)
   
-  # Extract the chunk
   chunk <- icd9_dates4_long3[start_row:end_row, ]
   
-  # Process the chunk (separate diagnostic_code into icd_code and description)
   chunk_separated <- chunk %>%
     separate(
       diagnostic_code,
@@ -976,14 +964,11 @@ for (i in 1:num_chunks) {
       fill = "right"
     )
   
-  # Store the processed chunk in the list
   chunk_list[[i]] <- chunk_separated
   
-  # Verbose readout
   cat("Processed chunk", i, "of", num_chunks, "\n")
 }
 
-# Combine the processed chunks back into a single dataframe
 icd9_dates4_long3_separated <- bind_rows(chunk_list)
 
 ##############################
@@ -1081,24 +1066,19 @@ icd9_dates4_extra_long3 <- icd9_dates4_extra_long2 %>% subset(select = c(partici
 
 ###############################
 # Define chunk size
-chunk_size <- 10000  # Adjust this size depending on available memory
+chunk_size <- 10000  
 
-# Split the dataframe into chunks
 total_rows <- nrow(icd9_dates4_long3)
 num_chunks <- ceiling(total_rows / chunk_size)
 
-# Initialize an empty list to store processed chunks
 chunk_list <- list()
 
 for (i in 1:num_chunks) {
-  # Define start and end index for the current chunk
   start_row <- (i - 1) * chunk_size + 1
   end_row <- min(i * chunk_size, total_rows)
   
-  # Extract the chunk
   chunk <- icd9_dates4_extra_long3[start_row:end_row, ]
   
-  # Process the chunk (separate diagnostic_code into icd_code and description)
   chunk_separated <- chunk %>%
     separate(
       diagnostic_code,
@@ -1108,14 +1088,11 @@ for (i in 1:num_chunks) {
       fill = "right"
     )
   
-  # Store the processed chunk in the list
   chunk_list[[i]] <- chunk_separated
   
-  # Verbose readout
   cat("Processed chunk", i, "of", num_chunks, "\n")
 }
 
-# Combine the processed chunks back into a single dataframe
 icd9_dates4_extra_long3_separated <- bind_rows(chunk_list)
 
 ##############################
@@ -1233,12 +1210,12 @@ recurrence_gp_data_1 <- recurrence_gp_data_1 %>% rename(
              initial_presentation,
              date_of_code)
 
-#recurrence_gp_data_2 <- recurrence_gp_data_2 %>% rename(
-#  date_of_code = date_clinical_code_was_entered
-#)
+recurrence_gp_data_2 <- recurrence_gp_data_2 %>% rename(
+  date_of_code = date_clinical_code_was_entered
+)
 
 overall_data <- rbind(recurrence_gp_data_1,
-                      #recurrence_gp_data_2,
+                      recurrence_gp_data_2,
                       stone_cases_intervention,
                       icd10_dates4_long_stone_cases2,
                       icd10_dates4_extra_long_stone_cases2,
@@ -1249,10 +1226,10 @@ overall_data <- rbind(recurrence_gp_data_1,
 ###############################################
 ### 9. Add age at first stone #################
 
-# Mutate age_at_first_stone
   overall_data <- overall_data %>% mutate(age_at_first_stone = (time_0 - dob)/365,
                           .keep = "unused")
-  overall_data$age_at_first_stone <- round(as.numeric(overall_data$age_at_first_stone),
+  
+overall_data$age_at_first_stone <- round(as.numeric(overall_data$age_at_first_stone),
                                    digits = 0)
 
 
@@ -1260,8 +1237,8 @@ overall_data <- rbind(recurrence_gp_data_1,
 ### 10. Explore final dataset ##################
 
 n <- overall_data %>%
-  group_by(participant_id) %>%                         # Group by participant_id
-  arrange(date_of_code) %>%                            # Arrange each group by date_of_code
+  group_by(participant_id) %>%                        
+  arrange(date_of_code) %>%                            
   filter(!(
     format(date_of_code, "%m-%d") == "01-01" &           # Remove dates that are 1st January & prior to year 2000 given GP coding less accurate prior to this
       format(date_of_code, "%Y") < 2000 &
